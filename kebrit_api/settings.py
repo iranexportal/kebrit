@@ -11,21 +11,31 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import environ
+
+# Initialize environment variables
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False)
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Take environment variables from .env file
+environ.Env.read_env(BASE_DIR / '.env.example')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-7lht3a&6zlzd%(%yv^8w2=zqp((z0cv_@piw&dg=s-%ifkex7x'
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-7lht3a&6zlzd%(%yv^8w2=zqp((z0cv_@piw&dg=s-%ifkex7x')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
 
 # Application definition
@@ -86,11 +96,11 @@ WSGI_APPLICATION = 'kebrit_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'kebrit_db',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': env('DB_NAME', default='kebrit_db'),
+        'USER': env('DB_USER', default='postgres'),
+        'PASSWORD': env('DB_PASSWORD', default='postgres'),
+        'HOST': env('DB_HOST', default='localhost'),
+        'PORT': env('DB_PORT', default='5432'),
         'OPTIONS': {
             'options': '-c search_path=roadmap,users,exam,media,public'
         },

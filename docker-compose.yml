@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: kebrit_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-kebrit_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - kebrit_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: kebrit_api
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${DB_NAME:-kebrit_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PORT=5432
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - kebrit_network
+
+volumes:
+  postgres_data:
+  static_volume:
+
+networks:
+  kebrit_network:
+    driver: bridge
+

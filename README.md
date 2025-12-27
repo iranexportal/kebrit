@@ -6,6 +6,7 @@
 
 - [پیش‌نیازها](#پیش‌نیازها)
 - [نصب و راه‌اندازی](#نصب-و-راه‌اندازی)
+- [اجرای با Docker](#اجرای-با-docker)
 - [ساختار پروژه](#ساختار-پروژه)
 - [پایگاه داده](#پایگاه-داده)
 - [اجرای پروژه](#اجرای-پروژه)
@@ -65,25 +66,50 @@ CREATE SCHEMA exam;
 CREATE SCHEMA media;
 ```
 
-### گام 5: تنظیم فایل settings.py
+### گام 5: تنظیم فایل .env
 
-فایل `kebrit_api/settings.py` را باز کنید و اطلاعات پایگاه داده را تنظیم کنید:
+**⚠️ توجه**: چون دایرکتوری `.env` (محیط مجازی) وجود دارد، باید فایل `.env` را به صورت دستی ایجاد کنید.
 
-```python
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'kebrit_db',           # نام پایگاه داده
-        'USER': 'postgres',             # نام کاربری PostgreSQL
-        'PASSWORD': 'your_password',    # رمز عبور PostgreSQL
-        'HOST': 'localhost',           # آدرس هاست
-        'PORT': '5432',                 # پورت
-        'OPTIONS': {
-            'options': '-c search_path=roadmap,users,exam,media,public'
-        },
-    }
-}
+1. فایل `.env.example` را باز کنید و محتوای آن را کپی کنید
+2. یک فایل جدید با نام `.env` در ریشه پروژه ایجاد کنید (در همان سطح که `manage.py` قرار دارد)
+3. محتوای زیر را در فایل `.env` قرار دهید و مقادیر را تغییر دهید:
+
+```env
+# Django Settings
+SECRET_KEY=your-secret-key-here-change-this-in-production
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Database Configuration
+DB_NAME=kebrit_db
+DB_USER=postgres
+DB_PASSWORD=your-database-password
+DB_HOST=localhost
+DB_PORT=5432
 ```
+
+**یا با دستور زیر:**
+
+```bash
+# در macOS/Linux
+cat > .env << 'EOF'
+# Django Settings
+SECRET_KEY=your-secret-key-here-change-this-in-production
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Database Configuration
+DB_NAME=kebrit_db
+DB_USER=postgres
+DB_PASSWORD=your-database-password
+DB_HOST=localhost
+DB_PORT=5432
+EOF
+```
+
+**⚠️ مهم**: 
+- فایل `.env` حاوی اطلاعات حساس است و نباید در Git commit شود. این فایل به صورت خودکار در `.gitignore` قرار دارد.
+- مقادیر `SECRET_KEY` و `DB_PASSWORD` را حتماً تغییر دهید.
 
 ### گام 6: اجرای Migration ها
 
@@ -99,6 +125,145 @@ python manage.py migrate
 
 ```bash
 python manage.py createsuperuser
+```
+
+## 🐳 اجرای با Docker
+
+### پیش‌نیازها برای Docker
+
+- Docker Desktop نصب شده باشد
+- Docker Compose در دسترس باشد
+
+### گام 1: تنظیم فایل .env برای Docker
+
+فایل `.env` را ایجاد کنید و تنظیمات زیر را وارد کنید:
+
+```env
+# Django Settings
+SECRET_KEY=your-secret-key-here
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+
+# Database Configuration
+# برای Docker: از 'db' به عنوان host استفاده کنید (نام service در docker-compose)
+DB_NAME=kebrit_db
+DB_USER=postgres
+DB_PASSWORD=your-password-here
+DB_HOST=db
+DB_PORT=5432
+```
+
+**⚠️ مهم**: در Docker، `DB_HOST` باید `db` باشد (نام service در docker-compose.yml)
+
+### گام 2: ساخت و اجرای Container ها
+
+```bash
+# ساخت image و اجرای container ها
+docker-compose up --build
+
+# یا برای اجرا در background
+docker-compose up -d --build
+```
+
+### گام 3: اجرای Migration ها (اگر خودکار اجرا نشد)
+
+```bash
+# اجرای migration ها
+docker-compose exec web python manage.py migrate
+
+# ایجاد superuser
+docker-compose exec web python manage.py createsuperuser
+```
+
+### دستورات مفید Docker
+
+```bash
+# مشاهده لاگ‌ها
+docker-compose logs -f
+
+# توقف container ها
+docker-compose down
+
+# توقف و حذف volume ها (⚠️ داده‌های پایگاه داده پاک می‌شود)
+docker-compose down -v
+
+# اجرای دستورات Django
+docker-compose exec web python manage.py <command>
+
+# دسترسی به shell پایگاه داده
+docker-compose exec db psql -U postgres -d kebrit_db
+
+# بازسازی image
+docker-compose build --no-cache
+
+# مشاهده container های در حال اجرا
+docker-compose ps
+```
+
+### ساخت Image به صورت جداگانه
+
+اگر می‌خواهید فقط image را بسازید بدون اجرا:
+
+```bash
+# ساخت image
+docker build -t kebrit-api:latest .
+
+# مشاهده image ساخته شده
+docker images | grep kebrit-api
+```
+
+### اتصال به پایگاه داده موجود در Docker Compose دیگر
+
+اگر پایگاه داده شما در یک `docker-compose` جداگانه اجرا می‌شود:
+
+1. **ایجاد Network مشترک** (اگر وجود ندارد):
+
+```bash
+docker network create kebrit_network
+```
+
+2. **اتصال پایگاه داده به Network**:
+
+در `docker-compose.yml` پایگاه داده خود، network را اضافه کنید:
+
+```yaml
+services:
+  db:
+    # ... سایر تنظیمات
+    networks:
+      - kebrit_network
+
+networks:
+  kebrit_network:
+    external: true
+```
+
+3. **اجرای فقط Django App**:
+
+```bash
+# استفاده از docker-compose.web.yml
+docker-compose -f docker-compose.web.yml up --build
+
+# یا اگر می‌خواهید فقط service web را از docker-compose اصلی اجرا کنید
+docker-compose up web --build
+```
+
+4. **تنظیم .env**:
+
+در فایل `.env`، `DB_HOST` را به نام service پایگاه داده در docker-compose دیگر تنظیم کنید:
+
+```env
+DB_HOST=db  # یا نام service پایگاه داده شما
+```
+
+**نکته**: مطمئن شوید که هر دو container در یک network (`kebrit_network`) هستند.
+
+### دسترسی به API
+
+پس از اجرای Docker Compose، API در آدرس زیر در دسترس است:
+
+```
+http://localhost:8000
 ```
 
 ## 🏗️ ساختار پروژه
