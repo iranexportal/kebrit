@@ -24,7 +24,9 @@ class CustomJWTAuthentication(JWTAuthentication):
         except User.DoesNotExist:
             raise InvalidToken('User not found')
         
-        if not user.is_active:
+        # Note: is_active is a property that always returns True
+        # since the column doesn't exist in the database
+        if not getattr(user, 'is_active', True):
             raise InvalidToken('User is inactive')
         
         return user

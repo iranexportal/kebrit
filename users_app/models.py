@@ -1,3 +1,4 @@
+from pickle import FALSE
 from django.db import models
 
 
@@ -6,8 +7,8 @@ class Company(models.Model):
     name = models.CharField(max_length=255)
 
     class Meta:
-        db_table = 'users.company'
-        managed = True
+        db_table = 'company'
+        managed = False
         app_label = 'users_app'
 
     def __str__(self):
@@ -17,15 +18,19 @@ class Company(models.Model):
 class User(models.Model):
     id = models.AutoField(primary_key=True)
     uuid = models.CharField(max_length=255)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyId', related_name='users')
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyid', related_name='users')
     mobile = models.CharField(max_length=20)
     name = models.CharField(max_length=100)
     password = models.CharField(max_length=255)
-    is_active = models.BooleanField(default=True)
+    
+    @property
+    def is_active(self):
+        """Always return True since is_active column doesn't exist in DB"""
+        return True
 
     class Meta:
-        db_table = 'users.user'
-        managed = True
+        db_table = 'user'
+        managed = False
         app_label = 'users_app'
         indexes = [
             models.Index(fields=['company'], name='idx_user_companyId'),
@@ -42,12 +47,12 @@ class User(models.Model):
 
 class Session(models.Model):
     uuid = models.UUIDField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userId', related_name='sessions')
-    expier_at = models.DateTimeField(db_column='expierAt')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userid', related_name='sessions')
+    expier_at = models.DateTimeField(db_column='expierat')
 
     class Meta:
-        db_table = 'users.session'
-        managed = True
+        db_table = 'session'
+        managed = False
         app_label = 'users_app'
 
     def __str__(self):
@@ -56,11 +61,11 @@ class Session(models.Model):
 
 class Token(models.Model):
     uuid = models.UUIDField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userId', related_name='tokens')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userid', related_name='tokens')
 
     class Meta:
-        db_table = 'users.token'
-        managed = True
+        db_table = 'token'
+        managed = False
         app_label = 'users_app'
 
     def __str__(self):
@@ -70,11 +75,11 @@ class Token(models.Model):
 class Role(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=255)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyId', related_name='roles')
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyid', related_name='roles')
 
     class Meta:
-        db_table = 'users.role'
-        managed = True
+        db_table = 'role'
+        managed = False
         app_label = 'users_app'
         indexes = [
             models.Index(fields=['company'], name='idx_role_companyId'),
@@ -86,12 +91,12 @@ class Role(models.Model):
 
 class UserRole(models.Model):
     id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userId', related_name='user_roles')
-    role = models.ForeignKey(Role, on_delete=models.CASCADE, db_column='roleId', related_name='user_roles')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userid', related_name='user_roles')
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, db_column='roleid', related_name='user_roles')
 
     class Meta:
-        db_table = 'users.userRole'
-        managed = True
+        db_table = 'userrole'
+        managed = False
         app_label = 'users_app'
         indexes = [
             models.Index(fields=['user'], name='idx_userRole_userId'),

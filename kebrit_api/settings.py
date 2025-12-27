@@ -102,10 +102,15 @@ DATABASES = {
         'HOST': env('DB_HOST', default='localhost'),
         'PORT': env('DB_PORT', default='5432'),
         'OPTIONS': {
-            'options': '-c search_path=roadmap,users,exam,media,public'
+            # Django tables will be created in 'django' schema
+            # Application tables use their own schemas (roadmap, users, exam, media)
+            'options': '-c search_path=django,roadmap,users,exam,media,public'
         },
     }
 }
+
+# Database router (optional, for more control)
+DATABASE_ROUTERS = ['kebrit_api.db_router.DjangoSchemaRouter']
 
 
 # Password validation

@@ -4,22 +4,22 @@ from users_app.models import User, Company
 
 class Mission(models.Model):
     id = models.AutoField(primary_key=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyId', related_name='missions', null=True, blank=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userId', related_name='missions', null=True, blank=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyid', related_name='missions', null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userid', related_name='missions', null=True, blank=True)
     type = models.CharField(max_length=1)
     title = models.CharField(max_length=255)
     content = models.TextField()
     mo = models.BooleanField()
     point = models.IntegerField()
-    create_at = models.DateTimeField(db_column='createAt', auto_now_add=True)
-    modified_at = models.DateTimeField(db_column='modifiedAt', null=True, blank=True)
-    expier_at = models.DateTimeField(db_column='expierAt', null=True, blank=True)
-    is_active = models.BooleanField(db_column='isActive', default=True)
-    at_least_point = models.IntegerField(db_column='atLeastPoint', null=True, blank=True)
+    create_at = models.DateTimeField(db_column='createat', auto_now_add=True)
+    modified_at = models.DateTimeField(db_column='modifiedat', null=True, blank=True)
+    expier_at = models.DateTimeField(db_column='expierat', null=True, blank=True)
+    is_active = models.BooleanField(db_column='isactive', default=True)
+    at_least_point = models.IntegerField(db_column='atleastpoint', null=True, blank=True)
 
     class Meta:
-        db_table = 'roadmap.mission'
-        managed = True
+        db_table = 'mission'
+        managed = False
         app_label = 'roadmap_app'
         indexes = [
             models.Index(fields=['company'], name='idx_mission_companyId'),
@@ -32,13 +32,13 @@ class Mission(models.Model):
 
 class MissionRelation(models.Model):
     id = models.AutoField(primary_key=True)
-    mission = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='missionId', related_name='relations')
-    parent = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='parentId', related_name='child_relations', null=True, blank=True)
-    child = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='childId', related_name='parent_relations', null=True, blank=True)
+    mission = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='missionid', related_name='relations')
+    parent = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='parentid', related_name='child_relations', null=True, blank=True)
+    child = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='childid', related_name='parent_relations', null=True, blank=True)
 
     class Meta:
-        db_table = 'roadmap.missionRelation'
-        managed = True
+        db_table = 'missionrelation'
+        managed = False
         app_label = 'roadmap_app'
         indexes = [
             models.Index(fields=['mission'], name='idx_missionRelation_missionId'),
@@ -51,11 +51,11 @@ class MissionRelation(models.Model):
 class Ability(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=255)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyId', related_name='abilities')
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyid', related_name='abilities')
 
     class Meta:
-        db_table = 'roadmap.ability'
-        managed = True
+        db_table = 'ability'
+        managed = False
         app_label = 'roadmap_app'
         indexes = [
             models.Index(fields=['company'], name='idx_ability_companyId'),
@@ -67,16 +67,16 @@ class Ability(models.Model):
 
 class MissionResult(models.Model):
     id = models.AutoField(primary_key=True)
-    mission = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='missionId', related_name='results')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userId', related_name='mission_results')
+    mission = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='missionid', related_name='results')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userid', related_name='mission_results')
     state = models.CharField(max_length=50)
-    user_grant = models.IntegerField(db_column='userGrant', null=True, blank=True)
-    quiz_id = models.IntegerField(db_column='quizId', null=True, blank=True)
-    ability = models.ForeignKey(Ability, on_delete=models.CASCADE, db_column='abilityId', related_name='mission_results', null=True, blank=True)
+    user_grant = models.IntegerField(db_column='usergrant', null=True, blank=True)
+    quiz_id = models.IntegerField(db_column='quizid', null=True, blank=True)
+    ability = models.ForeignKey(Ability, on_delete=models.CASCADE, db_column='abilityid', related_name='mission_results', null=True, blank=True)
 
     class Meta:
-        db_table = 'roadmap.missionResult'
-        managed = True
+        db_table = 'missionresult'
+        managed = False
         app_label = 'roadmap_app'
         indexes = [
             models.Index(fields=['mission'], name='idx_missionResult_missionId'),
