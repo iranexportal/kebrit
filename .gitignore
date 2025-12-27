@@ -1,0 +1,55 @@
+.env/
+# Python, Django, and database/virtualenv ignore patterns
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+db.sqlite3
+*.sqlite3
+
+# Env Files & Secrets
+.env
+.env.*
+*.env
+
+# Django/Migrations
+*/migrations/
+*/migrations/*.pyc
+*/migrations/*.py
+
+# VSCode and PyCharm
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# OS Files
+Thumbs.db
+
+# Logs
+*.log
+
+# Static & Media files (optionally)
+staticfiles/
+media/
+
+# Test/coverage
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+.noseids
+
+# Pip
+pip-wheel-metadata/
+pip-log.txt
+
+# Build/dist
+build/
+dist/
+*.egg-info/
+
+# Local dev db
+*.local.db
+
