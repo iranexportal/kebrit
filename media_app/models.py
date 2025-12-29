@@ -45,6 +45,9 @@ class Tag(models.Model):
 
 
 class FileTag(models.Model):
+    # Note: This table uses composite primary key (fileid, tagid) in the database
+    # Django requires an id field, but since managed=False, it won't be used in DB queries
+    id = models.BigAutoField(primary_key=True)  # Django requirement for models without explicit primary key
     file = models.ForeignKey(File, on_delete=models.CASCADE, db_column='fileid', related_name='file_tags')
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE, db_column='tagid', related_name='file_tags')
 

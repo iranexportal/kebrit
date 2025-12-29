@@ -6,6 +6,7 @@ The `urlpatterns` list routes URLs to views. For more information please see:
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import routers
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -60,10 +61,11 @@ router.register(r'tags', TagViewSet, basename='tag')
 router.register(r'file-tags', FileTagViewSet, basename='filetag')
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
-    # JWT Authentication endpoints
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    path('admin/', admin.site.urls),  # Admin panel requires CSRF
+    # API endpoints are exempt from CSRF (API-only, using JWT)
+    path('api/', csrf_exempt(include(router.urls))),
+    # JWT Authentication endpoints (exempt from CSRF)
+    path('api/token/', csrf_exempt(TokenObtainPairView.as_view()), name='token_obtain_pair'),
+    path('api/token/refresh/', csrf_exempt(TokenRefreshView.as_view()), name='token_refresh'),
+    path('api/token/verify/', csrf_exempt(TokenVerifyView.as_view()), name='token_verify'),
 ]

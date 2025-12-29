@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 import environ
 
 # Initialize environment variables
@@ -23,7 +24,11 @@ env = environ.Env(
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Take environment variables from .env file
-environ.Env.read_env(BASE_DIR / '.env.example')
+# Try .env first, fallback to .env.example if .env doesn't exist
+env_file = BASE_DIR / '.env'
+if not env_file.exists():
+    env_file = BASE_DIR / '.env.example'
+environ.Env.read_env(env_file)
 
 
 # Quick-start development settings - unsuitable for production
@@ -35,7 +40,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-7lht3a&6zlzd%(%yv^8w2=zq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', 'k.htni.ir'])
 
 
 # Application definition
@@ -55,7 +60,7 @@ INSTALLED_APPS = [
     'users_app',
     'roadmap_app',
     'exam_app',
-    'media_app',
+    'media_app.apps.MediaAppConfig',
 ]
 
 MIDDLEWARE = [
@@ -63,8 +68,8 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # CSRF disabled for API-only backend
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    # CSRF enabled for admin panel, but exempted for API endpoints via @csrf_exempt
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -143,11 +148,15 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Default primary key field type
+# https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # REST Framework settings
 REST_FRAMEWORK = {
@@ -182,14 +191,16 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
+    "https://k.htni.ir",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Disable CSRF for API
+# CSRF trusted origins (for admin panel)
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
+    "https://k.htni.ir",
 ]
 
 # Custom User Model (if needed in future)
