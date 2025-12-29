@@ -35,6 +35,38 @@ class EvaluationViewSet(viewsets.ModelViewSet):
             if not is_admin:
                 queryset = queryset.filter(user__company_id=self.request.user.company_id)
         return queryset
+    
+    @action(detail=True, methods=['get'], url_path='questions')
+    @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'))
+    def get_questions(self, request, pk=None):
+        """
+        دریافت تمام سوالات مربوط به یک Evaluation
+        
+        این endpoint تمام سوالات موجود در بانک سوالات یک Evaluation را برمی‌گرداند.
+        شامل پاسخ صحیح (correct) است و برای مدرسان طراحی شده است.
+        
+        URL: GET /api/evaluations/{id}/questions/
+        """
+        try:
+            evaluation = self.get_object()
+        except Evaluation.DoesNotExist:
+            return Response(
+                {'error': 'Evaluation یافت نشد'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # دریافت تمام سوالات مربوط به این Evaluation
+        questions = Question.objects.filter(evaluation=evaluation).order_by('id')
+        
+        # استفاده از QuestionSerializer که شامل تمام فیلدها از جمله correct است
+        serializer = QuestionSerializer(questions, many=True)
+        
+        return Response({
+            'evaluation_id': evaluation.id,
+            'evaluation_details': EvaluationSerializer(evaluation).data,
+            'total_questions': questions.count(),
+            'questions': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'), name='list')

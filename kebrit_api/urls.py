@@ -60,10 +60,14 @@ router.register(r'files', FileViewSet, basename='file')
 router.register(r'tags', TagViewSet, basename='tag')
 router.register(r'file-tags', FileTagViewSet, basename='filetag')
 
+# Note: csrf_exempt cannot be used directly with include().
+# For DRF routers, CSRF exemption is typically handled at the viewset level or via settings.
+# REST Framework viewsets handle CSRF exemption automatically for API requests.
+
 urlpatterns = [
     path('admin/', admin.site.urls),  # Admin panel requires CSRF
     # API endpoints are exempt from CSRF (API-only, using JWT)
-    path('api/', csrf_exempt(include(router.urls))),
+    path('api/', include(router.urls)),
     # JWT Authentication endpoints (exempt from CSRF)
     path('api/token/', csrf_exempt(TokenObtainPairView.as_view()), name='token_obtain_pair'),
     path('api/token/refresh/', csrf_exempt(TokenRefreshView.as_view()), name='token_refresh'),

@@ -148,6 +148,75 @@ PATCH /api/evaluations/{id}/
 DELETE /api/evaluations/{id}/
 ```
 
+#### 1.6. دریافت تمام سوالات یک Evaluation ⭐
+```
+GET /api/evaluations/{id}/questions/
+```
+**توضیحات**: دریافت تمام سوالات موجود در بانک سوالات یک Evaluation. این endpoint برای مدرسان طراحی شده و شامل پاسخ صحیح (`correct`) است.
+
+**پاسخ موفق** (200):
+```json
+{
+  "evaluation_id": 1,
+  "evaluation_details": {
+    "id": 1,
+    "type": true,
+    "acceptscore": 70,
+    "numberofquestion": 10,
+    "missionid": 1,
+    "userid": 5,
+    "createat": "2024-01-15T10:00:00Z",
+    "isactive": true,
+    "canback": true,
+    "duration": 60,
+    "questions_count": 25
+  },
+  "total_questions": 25,
+  "questions": [
+    {
+      "id": 1,
+      "evaluationid": 1,
+      "description": "پایتخت ایران کجاست؟",
+      "img": null,
+      "type": true,
+      "c1": "تهران",
+      "c2": "اصفهان",
+      "c3": "شیراز",
+      "c4": "مشهد",
+      "correct": 1,
+      "answer": null,
+      "weight": 1.0,
+      "canshuffle": false
+    },
+    {
+      "id": 2,
+      "evaluationid": 1,
+      "description": "2 + 2 برابر است با؟",
+      "img": null,
+      "type": true,
+      "c1": "3",
+      "c2": "4",
+      "c3": "5",
+      "c4": "6",
+      "correct": 2,
+      "answer": null,
+      "weight": 1.0,
+      "canshuffle": false
+    },
+    ...
+  ]
+}
+```
+
+**خطاهای ممکن**:
+- `404`: Evaluation یافت نشد
+- `403`: دسترسی به این Evaluation ندارید
+
+**نکات مهم**:
+- این endpoint شامل پاسخ صحیح (`correct`) است و برای مدرسان طراحی شده
+- سوالات به ترتیب `id` مرتب می‌شوند
+- برای دانشجویان از endpoint `/api/quizzes/{id}/questions/` استفاده کنید که پاسخ صحیح را نمایش نمی‌دهد
+
 ---
 
 ### 2. مدیریت سوالات (Question)
@@ -598,6 +667,12 @@ GET /api/quiz-response-evaluations/{id}/
    ```
    (این کار را برای 25 سوال تکرار می‌کند)
 
+3. **مشاهده تمام سوالات Evaluation**:
+   ```
+   GET /api/evaluations/1/questions/
+   ```
+   پاسخ: لیست کامل تمام سوالات با جزئیات کامل (شامل پاسخ صحیح)
+
 ### سناریو 2: دانشجو در آزمون شرکت می‌کند
 
 1. **شروع کوئیز**:
@@ -684,6 +759,12 @@ curl -X POST http://localhost:8000/api/questions/ \
     "correct": 2,
     "weight": 1.0
   }'
+```
+
+#### مرحله 2.5: مشاهده تمام سوالات Evaluation
+```bash
+curl -X GET http://localhost:8000/api/evaluations/1/questions/ \
+  -H "Authorization: Bearer {token}"
 ```
 
 #### مرحله 3: شروع کوئیز

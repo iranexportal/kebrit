@@ -25,9 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Take environment variables from .env file
 # Try .env first, fallback to .env.example if .env doesn't exist
-env_file = BASE_DIR / '.env'
-if not env_file.exists():
-    env_file = BASE_DIR / '.env.example'
+env_file = BASE_DIR / '.env.example'
 environ.Env.read_env(env_file)
 
 
@@ -101,11 +99,11 @@ WSGI_APPLICATION = 'kebrit_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME', default='kebrit_db'),
-        'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default='postgres'),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD',),
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT'),
         'OPTIONS': {
             # Django tables will be created in 'django' schema
             # Application tables use their own schemas (roadmap, users, exam, media)
