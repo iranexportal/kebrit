@@ -38,7 +38,15 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-7lht3a&6zlzd%(%yv^8w2=zq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', 'k.htni.ir', 'api.ayareto.ir'])
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'htni.ir',
+    'app.htni.ir',
+    'ayareto.ir',
+    'api.ayareto.ir',
+    'api.ayareto.com',
+]
 
 
 # Application definition
