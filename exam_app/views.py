@@ -34,7 +34,15 @@ class EvaluationViewSet(viewsets.ModelViewSet):
             is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
             if not is_admin:
                 queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        # مرتب‌سازی برای جلوگیری از warning pagination
+        queryset = queryset.order_by('-create_at', '-id')
         return queryset
+    
+    def get_serializer_context(self):
+        """اضافه کردن request به context برای دسترسی به کاربر در serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
     
     @action(detail=True, methods=['get'], url_path='questions')
     @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'))
@@ -63,7 +71,7 @@ class EvaluationViewSet(viewsets.ModelViewSet):
         
         return Response({
             'evaluation_id': evaluation.id,
-            'evaluation_details': EvaluationSerializer(evaluation).data,
+            'evaluation_details': EvaluationSerializer(evaluation, context={'request': request}).data,
             'total_questions': questions.count(),
             'questions': serializer.data
         }, status=status.HTTP_200_OK)
@@ -108,6 +116,8 @@ class QuizViewSet(viewsets.ModelViewSet):
             is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
             if not is_admin:
                 queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        # مرتب‌سازی به ترتیب جدیدترین به قدیمی‌ترین بر اساس start_at
+        queryset = queryset.order_by('-start_at')
         return queryset
     
     @action(detail=False, methods=['post'], url_path='start')
@@ -239,7 +249,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         ارسال پاسخ‌های کوئیز و محاسبه نمره
         
         این endpoint پاسخ‌های دانشجو را دریافت می‌کند، نمره هر سوال را محاسبه می‌کند
-        و نمره نهایی را در QuizResponseEvaluation ذخیره می‌کند.
+        و درصد نمره (percentage) را در QuizResponseEvaluation به عنوان کارنامه کلی آزمون ذخیره می‌کند.
         
         Body:
         {
@@ -278,6 +288,18 @@ class QuizViewSet(viewsets.ModelViewSet):
                 {'error': 'شما دسترسی به این کوئیز ندارید'},
                 status=status.HTTP_403_FORBIDDEN
             )
+        
+        # بررسی دسترسی به آزمون شرکت
+        if hasattr(request.user, 'company_id'):
+            user_roles = request.user.user_roles.all()
+            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
+            if not is_admin:
+                # بررسی اینکه evaluation متعلق به همان شرکت باشد
+                if quiz.evaluation.user and quiz.evaluation.user.company_id != request.user.company_id:
+                    return Response(
+                        {'error': 'شما دسترسی به آزمون این شرکت ندارید'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
         
         # بررسی اینکه کوئیز قبلاً تمام نشده باشد
         if quiz.end_at is not None:
@@ -322,8 +344,15 @@ class QuizViewSet(viewsets.ModelViewSet):
                         question=question
                     ).first()
                     
+                    # اگر QuizResponse وجود نداشته باشد، آن را ایجاد می‌کنیم
                     if not quiz_response:
-                        continue
+                        quiz_response = QuizResponse.objects.create(
+                            quiz=quiz,
+                            question=question,
+                            answer=None,
+                            score=None,
+                            done=None
+                        )
                     
                     # محاسبه نمره
                     is_correct = False
@@ -345,6 +374,7 @@ class QuizViewSet(viewsets.ModelViewSet):
                     quiz_response.save()
                     
                     total_score += score
+                    total_score = total_score * 10
                 
                 # محاسبه درصد
                 total_questions = quiz_questions.count()
@@ -360,16 +390,16 @@ class QuizViewSet(viewsets.ModelViewSet):
                 quiz.state = 'completed'
                 quiz.save()
                 
-                # ایجاد QuizResponseEvaluation برای هر پاسخ (طبق ساختار فعلی مدل)
-                # یا می‌توانیم یک رکورد برای کل کوئیز ایجاد کنیم
-                # با توجه به ساختار فعلی، برای هر QuizResponse یک QuizResponseEvaluation ایجاد می‌کنیم
-                quiz_responses = QuizResponse.objects.filter(quiz=quiz)
-                for qr in quiz_responses:
-                    QuizResponseEvaluation.objects.update_or_create(
-                        user=request.user,
-                        quiz_response=qr,
-                        defaults={'score': qr.score or 0.0}
-                    )
+                # ایجاد QuizResponseEvaluation برای کل کوئیز (کارنامه کلی آزمون)
+                # score در اینجا percentage است
+                QuizResponseEvaluation.objects.update_or_create(
+                    user=request.user,
+                    quiz=quiz,
+                    defaults={'score': round(percentage, 2)}
+                )
+                
+                # دریافت تمام پاسخ‌های به‌روزرسانی شده
+                quiz_responses = QuizResponse.objects.filter(quiz=quiz).select_related('question')
                 
                 # آماده‌سازی نتیجه
                 result_data = {
@@ -538,7 +568,7 @@ class QuizResponseViewSet(viewsets.ModelViewSet):
 @method_decorator(ratelimit(key='ip', rate='50/h', method='PATCH'), name='partial_update')
 @method_decorator(ratelimit(key='ip', rate='50/h', method='DELETE'), name='destroy')
 class QuizResponseEvaluationViewSet(viewsets.ModelViewSet):
-    queryset = QuizResponseEvaluation.objects.select_related('user', 'user__company', 'quiz_response', 'quiz_response__quiz', 'quiz_response__quiz__user').all()
+    queryset = QuizResponseEvaluation.objects.select_related('user', 'user__company', 'quiz', 'quiz__evaluation', 'quiz__user').all()
     serializer_class = QuizResponseEvaluationSerializer
     permission_classes = [CompanyPermission]
     

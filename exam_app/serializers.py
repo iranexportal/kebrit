@@ -4,6 +4,8 @@ from .models import Evaluation, Question, Quiz, QuizResponse, QuizResponseEvalua
 
 class EvaluationSerializer(serializers.ModelSerializer):
     questions_count = serializers.SerializerMethodField()
+    last_score = serializers.SerializerMethodField()
+    last_quiz_id = serializers.SerializerMethodField()
     
     class Meta:
         model = Evaluation
@@ -12,6 +14,40 @@ class EvaluationSerializer(serializers.ModelSerializer):
     def get_questions_count(self, obj):
         """تعداد سوالات موجود در بانک سوالات این evaluation"""
         return obj.questions.count()
+    
+    def _get_last_evaluation_data(self, obj):
+        """کش کردن آخرین evaluation برای جلوگیری از query های تکراری"""
+        if not hasattr(obj, '_last_evaluation_cache'):
+            request = self.context.get('request')
+            if not request or not request.user or not request.user.is_authenticated:
+                obj._last_evaluation_cache = None
+            else:
+                try:
+                    # پیدا کردن آخرین QuizResponseEvaluation که quiz آن تمام شده باشد
+                    last_evaluation = QuizResponseEvaluation.objects.filter(
+                        user=request.user,
+                        quiz__evaluation=obj,
+                        quiz__end_at__isnull=False
+                    ).select_related('quiz').order_by('-quiz__end_at').first()
+                    
+                    obj._last_evaluation_cache = last_evaluation
+                except Exception:
+                    obj._last_evaluation_cache = None
+        return obj._last_evaluation_cache
+    
+    def get_last_score(self, obj):
+        """نمره آخرین آزمون کاربر برای این evaluation (percentage)"""
+        last_evaluation = self._get_last_evaluation_data(obj)
+        if last_evaluation and last_evaluation.score is not None:
+            return round(last_evaluation.score, 2)
+        return None
+    
+    def get_last_quiz_id(self, obj):
+        """شناسه آخرین کوئیز کاربر برای این evaluation"""
+        last_evaluation = self._get_last_evaluation_data(obj)
+        if last_evaluation:
+            return last_evaluation.quiz_id
+        return None
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -30,7 +66,7 @@ class QuestionForQuizSerializer(serializers.ModelSerializer):
 
 
 class QuizSerializer(serializers.ModelSerializer):
-    evaluation_details = EvaluationSerializer(source='evaluation', read_only=True)
+    evaluation_details = serializers.SerializerMethodField()
     questions = serializers.SerializerMethodField()
     responses_count = serializers.SerializerMethodField()
     
@@ -38,6 +74,10 @@ class QuizSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = '__all__'
         read_only_fields = ['id', 'start_at', 'end_at', 'score', 'is_accept', 'state']
+    
+    def get_evaluation_details(self, obj):
+        """جزئیات evaluation با context برای نمایش نمره قبلی"""
+        return EvaluationSerializer(obj.evaluation, context=self.context).data
     
     def get_questions(self, obj):
         """سوالات انتخاب شده برای این کوئیز"""
@@ -74,7 +114,7 @@ class QuizSubmitSerializer(serializers.Serializer):
 
 
 class QuizResponseEvaluationSerializer(serializers.ModelSerializer):
-    quiz_response_details = QuizResponseSerializer(source='quiz_response', read_only=True)
+    quiz_details = QuizSerializer(source='quiz', read_only=True)
     user_name = serializers.CharField(source='user.name', read_only=True)
     
     class Meta:

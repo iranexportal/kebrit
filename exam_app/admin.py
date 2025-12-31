@@ -4,9 +4,9 @@ from .models import Evaluation, Question, Quiz, QuizResponse, QuizResponseEvalua
 
 @admin.register(Evaluation)
 class EvaluationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'type', 'accept_score', 'number_of_question', 'mission', 'user', 'is_active', 'create_at']
+    list_display = ['id', 'title', 'type', 'accept_score', 'number_of_question', 'mission', 'user', 'is_active', 'create_at']
     list_filter = ['type', 'is_active', 'can_back', 'create_at']
-    search_fields = ['mission__title', 'user__name']
+    search_fields = ['title', 'mission__title', 'user__name']
     raw_id_fields = ['mission', 'user']
     date_hierarchy = 'create_at'
 
@@ -38,7 +38,7 @@ class QuizResponseAdmin(admin.ModelAdmin):
 
 @admin.register(QuizResponseEvaluation)
 class QuizResponseEvaluationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'quiz_response', 'score']
+    list_display = ['id', 'user', 'quiz', 'score']
     list_filter = ['user']
-    search_fields = ['user__name', 'quiz_response__id']
-    raw_id_fields = ['user', 'quiz_response']
+    search_fields = ['user__name', 'quiz__id']
+    raw_id_fields = ['user', 'quiz']

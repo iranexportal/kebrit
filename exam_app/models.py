@@ -5,6 +5,7 @@ from roadmap_app.models import Mission
 
 class Evaluation(models.Model):
     id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=255, null=True, blank=True)
     type = models.BooleanField()
     accept_score = models.IntegerField(db_column='acceptscore')
     number_of_question = models.IntegerField(db_column='numberofquestion')
@@ -25,6 +26,8 @@ class Evaluation(models.Model):
         ]
 
     def __str__(self):
+        if self.title:
+            return f"{self.title} (Evaluation {self.id})"
         return f"Evaluation {self.id}"
 
 
@@ -102,8 +105,8 @@ class QuizResponse(models.Model):
 class QuizResponseEvaluation(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='userid', related_name='quiz_response_evaluations')
-    quiz_response = models.ForeignKey(QuizResponse, on_delete=models.CASCADE, db_column='quizresponseid', related_name='evaluations')
-    score = models.FloatField(null=True, blank=True)
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, db_column='quizid', related_name='evaluations')
+    score = models.FloatField(null=True, blank=True)  # percentage score
 
     class Meta:
         db_table = 'quizresponseevaluation'
@@ -111,7 +114,7 @@ class QuizResponseEvaluation(models.Model):
         app_label = 'exam_app'
         indexes = [
             models.Index(fields=['user'], name='idx_qre_userId'),
-            models.Index(fields=['quiz_response'], name='idx_qre_quizRespId'),
+            models.Index(fields=['quiz'], name='idx_qre_quizId'),
         ]
 
     def __str__(self):

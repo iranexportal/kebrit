@@ -13,11 +13,12 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
+from users_app.serializers import CustomTokenObtainPairSerializer
 
 # Import all viewsets
 from users_app.views import (
     CompanyViewSet, UserViewSet, SessionViewSet,
-    TokenViewSet, RoleViewSet, UserRoleViewSet
+    TokenViewSet, RoleViewSet, UserRoleViewSet, login
 )
 from roadmap_app.views import (
     MissionViewSet, MissionRelationViewSet,
@@ -68,8 +69,11 @@ urlpatterns = [
     path('admin/', admin.site.urls),  # Admin panel requires CSRF
     # API endpoints are exempt from CSRF (API-only, using JWT)
     path('api/', include(router.urls)),
+    # Custom login endpoint with mobile and password
+    path('api/login/', csrf_exempt(login), name='login'),
     # JWT Authentication endpoints (exempt from CSRF)
-    path('api/token/', csrf_exempt(TokenObtainPairView.as_view()), name='token_obtain_pair'),
+    # Custom token view that accepts mobile instead of username
+    path('api/token/', csrf_exempt(TokenObtainPairView.as_view(serializer_class=CustomTokenObtainPairSerializer)), name='token_obtain_pair'),
     path('api/token/refresh/', csrf_exempt(TokenRefreshView.as_view()), name='token_refresh'),
     path('api/token/verify/', csrf_exempt(TokenVerifyView.as_view()), name='token_verify'),
 ]
