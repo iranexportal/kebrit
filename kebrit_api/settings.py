@@ -212,3 +212,10 @@ CSRF_TRUSTED_ORIGINS = [
 # Custom User Model
 # Set this to use our custom User model instead of Django's default
 AUTH_USER_MODEL = 'users_app.User'
+
+# Custom Authentication Backend
+# Use our custom backend for Django admin authentication
+AUTHENTICATION_BACKENDS = [
+    'users_app.backends.CustomUserBackend',
+    'django.contrib.auth.backends.ModelBackend',  # Fallback to default
+]
