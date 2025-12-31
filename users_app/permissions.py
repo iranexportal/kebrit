@@ -57,3 +57,40 @@ class IsAdminOrReadOnly(permissions.BasePermission):
         
         return False
 
+
+def HasPermission(required_permission):
+    """
+    Permission class factory that checks if user has a specific permission.
+    Permissions are read from JWT token claims to avoid database queries.
+    
+    Usage:
+        permission_classes = [HasPermission('admin.write')]
+    """
+    
+    class PermissionChecker(permissions.BasePermission):
+        def has_permission(self, request, view):
+            if not request.user or not request.user.is_authenticated:
+                return False
+            
+            # Try to get permissions from JWT token first (faster, no DB query)
+            if hasattr(request, 'auth') and request.auth:
+                token_permissions = request.auth.get('permissions', [])
+                if required_permission in token_permissions:
+                    return True
+            
+            # Fallback: Check permissions from user roles (database query)
+            if hasattr(request.user, 'user_roles'):
+                user_roles = request.user.user_roles.select_related('role').all()
+                for user_role in user_roles:
+                    role_title = user_role.role.title.lower()
+                    if role_title == 'admin':
+                        # Admin has all permissions
+                        admin_permissions = ['admin.read', 'admin.write', 'admin.delete']
+                        if required_permission in admin_permissions:
+                            return True
+                    # Add more role-based permission checks as needed
+            
+            return False
+    
+    return PermissionChecker
+

@@ -374,7 +374,7 @@ class QuizViewSet(viewsets.ModelViewSet):
                     quiz_response.save()
                     
                     total_score += score
-                    total_score = total_score * 10
+                    total_score = total_score
                 
                 # محاسبه درصد
                 total_questions = quiz_questions.count()
@@ -385,7 +385,7 @@ class QuizViewSet(viewsets.ModelViewSet):
                 
                 # به‌روزرسانی کوئیز
                 quiz.end_at = timezone.now()
-                quiz.score = total_score
+                quiz.score = total_score * 10
                 quiz.is_accept = is_accept
                 quiz.state = 'completed'
                 quiz.save()

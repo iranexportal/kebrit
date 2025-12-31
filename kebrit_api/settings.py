@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',  # ADD THIS: Token blacklisting support
     'corsheaders',
     # Local apps
     'users_app',
@@ -183,6 +184,13 @@ SIMPLE_JWT = {
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
+    # ADD THIS: Cookie settings for JWT tokens
+    'AUTH_COOKIE': 'access_token',
+    'AUTH_COOKIE_REFRESH': 'refresh_token',
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_SECURE': not DEBUG,  # Only secure in production
+    'AUTH_COOKIE_SAMESITE': 'Lax',
+    'AUTH_COOKIE_PATH': '/',
 }
 
 # CORS settings
@@ -201,5 +209,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://k.htni.ir",
 ]
 
-# Custom User Model (if needed in future)
-# AUTH_USER_MODEL = 'users_app.User'
+# Custom User Model
+# Set this to use our custom User model instead of Django's default
+AUTH_USER_MODEL = 'users_app.User'

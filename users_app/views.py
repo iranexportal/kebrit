@@ -200,7 +200,21 @@ def login(request):
     refresh = RefreshToken()
     refresh['user_id'] = user.id
     
-    return Response({
+    # Add role and permissions to token
+    user_roles = user.user_roles.select_related('role').all()
+    roles = [ur.role.title for ur in user_roles]
+    refresh['role'] = roles[0] if roles else None
+    refresh['roles'] = roles
+    
+    # Add permissions based on roles
+    permissions = []
+    for user_role in user_roles:
+        role_title = user_role.role.title.lower()
+        if role_title == 'admin':
+            permissions.extend(['admin.read', 'admin.write', 'admin.delete'])
+    refresh['permissions'] = list(set(permissions))
+    
+    response = Response({
         'access': str(refresh.access_token),
         'refresh': str(refresh),
         'user': {
@@ -208,9 +222,34 @@ def login(request):
             'name': user.name,
             'mobile': user.mobile,
             'company_id': user.company_id,
-            'company_name': user.company.name
+            'company_name': user.company.name,
+            'roles': roles,
+            'permissions': refresh['permissions']
         }
     }, status=status.HTTP_200_OK)
+    
+    # ADD THIS: Set HttpOnly cookies for tokens (keep header response for backward compatibility)
+    from django.conf import settings
+    response.set_cookie(
+        'access_token',
+        str(refresh.access_token),
+        max_age=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds(),
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite='Lax',
+        path='/'
+    )
+    response.set_cookie(
+        'refresh_token',
+        str(refresh),
+        max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite='Lax',
+        path='/'
+    )
+    
+    return response
 
 
 @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'), name='list')

@@ -19,9 +19,13 @@ class User(models.Model):
     id = models.AutoField(primary_key=True)
     uuid = models.CharField(max_length=255)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyid', related_name='users')
-    mobile = models.CharField(max_length=20)
+    mobile = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100)
     password = models.CharField(max_length=255)
+    
+    # Required for Django authentication system
+    USERNAME_FIELD = 'mobile'
+    REQUIRED_FIELDS = ['name', 'company']
     
     @property
     def is_active(self):
@@ -40,6 +44,11 @@ class User(models.Model):
     def is_authenticated(self):
         """Required for Django authentication"""
         return True
+    
+    @property
+    def is_anonymous(self):
+        """Required for Django authentication"""
+        return False
 
     def __str__(self):
         return self.name

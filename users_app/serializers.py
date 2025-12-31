@@ -77,6 +77,26 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Generate token using parent method
         refresh = self.get_token(user)
         
+        # Add custom claims to JWT payload
+        refresh['user_id'] = user.id
+        refresh['company_id'] = user.company_id
+        refresh['name'] = user.name
+        refresh['mobile'] = user.mobile
+        
+        # Add role information
+        user_roles = user.user_roles.select_related('role').all()
+        roles = [ur.role.title for ur in user_roles]
+        refresh['role'] = roles[0] if roles else None
+        refresh['roles'] = roles
+        refresh['is_admin'] = 'admin' in [r.lower() for r in roles]
+        
+        # Add permissions (using role-based permissions for now)
+        # Since we don't use Django Groups/Permissions, we'll use role-based permissions
+        permissions = []
+        if refresh['is_admin']:
+            permissions.extend(['admin.read', 'admin.write', 'admin.delete'])
+        refresh['permissions'] = list(set(permissions))  # Remove duplicates
+        
         data = {}
         data['refresh'] = str(refresh)
         data['access'] = str(refresh.access_token)
