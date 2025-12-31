@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',  # ADD THIS: Token blacklisting support
     'corsheaders',
     # Local apps
+    'kebrit_api',  # ADD THIS: For migrations
     'users_app',
     'roadmap_app',
     'exam_app',
