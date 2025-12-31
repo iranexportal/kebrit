@@ -38,7 +38,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-7lht3a&6zlzd%(%yv^8w2=zq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', 'k.htni.ir'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', 'k.htni.ir', 'api.ayareto.ir'])
 
 
 # Application definition
@@ -198,15 +198,40 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
     "https://k.htni.ir",
+    "https://app.ayareto.ir",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# CORS additional settings for preflight requests
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # CSRF trusted origins (for admin panel)
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
     "https://k.htni.ir",
+    "https://app.ayareto.ir",
+    "https://api.ayareto.ir",
 ]
 
 # Custom User Model
