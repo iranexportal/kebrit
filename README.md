@@ -356,13 +356,26 @@ http://127.0.0.1:8000/admin/
 
 ### 🔐 احراز هویت (Authentication)
 
-#### دریافت Token
+سیستم احراز هویت از **JWT (JSON Web Tokens)** با پشتیبانی از **HttpOnly Cookies** استفاده می‌کند. این سیستم امنیت بالایی را فراهم می‌کند و از ذخیره‌سازی توکن در localStorage جلوگیری می‌کند.
+
+#### ویژگی‌های احراز هویت
+
+- ✅ **JWT Token-based Authentication**: استفاده از Access Token و Refresh Token
+- ✅ **HttpOnly Cookies**: توکن‌ها به صورت خودکار در HttpOnly cookies ذخیره می‌شوند
+- ✅ **Secure Cookies**: در production، cookies با flag Secure ارسال می‌شوند
+- ✅ **Token Blacklisting**: امکان باطل کردن توکن‌ها هنگام logout
+- ✅ **Custom Claims**: توکن‌ها شامل `user_id`, `role`, `roles`, `permissions` هستند
+- ✅ **Mobile-based Login**: ورود با شماره تلفن به جای username
+- ✅ **Permission-based Authorization**: دسترسی بر اساس مجوزها (permissions)
+
+#### دریافت Token (ورود)
+
 ```http
 POST /api/token/
 Content-Type: application/json
 
 {
-  "username": "user_id",
+  "mobile": "09123456789",
   "password": "user_password"
 }
 ```
@@ -375,7 +388,52 @@ Content-Type: application/json
 }
 ```
 
+**نکته**: توکن‌ها به صورت خودکار در HttpOnly cookies نیز ذخیره می‌شوند:
+- `access_token`: توکن دسترسی (معمولاً 5 دقیقه)
+- `refresh_token`: توکن تازه‌سازی (معمولاً 1 روز)
+
+**JWT Payload شامل:**
+```json
+{
+  "user_id": 1,
+  "company_id": 1,
+  "name": "علی احمدی",
+  "mobile": "09123456789",
+  "roles": ["admin", "user"],
+  "is_admin": true,
+  "permissions": ["admin.read", "admin.write", "admin.delete"]
+}
+```
+
+#### ورود با API سفارشی
+
+```http
+POST /api/login/
+Content-Type: application/json
+
+{
+  "mobile": "09123456789",
+  "password": "user_password"
+}
+```
+
+**پاسخ:**
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "user": {
+    "id": 1,
+    "name": "علی احمدی",
+    "mobile": "09123456789",
+    "company_id": 1,
+    "company_name": "شرکت نمونه"
+  }
+}
+```
+
 #### تازه‌سازی Token
+
 ```http
 POST /api/token/refresh/
 Content-Type: application/json
@@ -385,13 +443,43 @@ Content-Type: application/json
 }
 ```
 
+**یا از Cookie:**
+```http
+POST /api/token/refresh/
+```
+
+توکن refresh به صورت خودکار از cookie خوانده می‌شود.
+
+**پاسخ:**
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+}
+```
+
 #### بررسی اعتبار Token
+
 ```http
 POST /api/token/verify/
 Content-Type: application/json
 
 {
   "token": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+}
+```
+
+#### خروج از سیستم (Logout)
+
+```http
+POST /api/token/logout/
+```
+
+این endpoint توکن refresh را blacklist می‌کند و cookies را پاک می‌کند.
+
+**پاسخ:**
+```json
+{
+  "message": "Successfully logged out"
 }
 ```
 
@@ -436,6 +524,58 @@ POST /api/users/
   "password": "secure_password"
 }
 ```
+
+#### ایجاد کاربر جدید با رمز عبور تصادفی
+
+```http
+POST /api/users/create/
+Content-Type: application/json
+
+{
+  "name": "علی احمدی",
+  "company_id": 1,
+  "uuid": "user-uuid-123",
+  "mobile": "09123456789"
+}
+```
+
+**پاسخ:**
+```json
+{
+  "message": "کاربر با موفقیت ایجاد شد",
+  "user_id": 1,
+  "mobile": "09123456789",
+  "generated_password": "aB3$kL9mN2pQ"
+}
+```
+
+**نکته**: رمز عبور به صورت خودکار یک رشته 12 کاراکتری تصادفی (شامل حروف، اعداد و کاراکترهای خاص) تولید می‌شود.
+
+#### لیست کاربران یک شرکت
+
+```http
+GET /api/users/company/{company_id}/
+Authorization: Bearer {access_token}
+```
+
+**پاسخ:**
+```json
+{
+  "company_id": 1,
+  "company_name": "شرکت نمونه",
+  "users": [
+    {
+      "id": 1,
+      "name": "علی احمدی",
+      "mobile": "09123456789",
+      "uuid": "user-uuid-123",
+      "company": 1
+    }
+  ]
+}
+```
+
+**نکته**: فقط کاربران همان شرکت یا کاربران Admin می‌توانند لیست کاربران یک شرکت را مشاهده کنند.
 
 #### Sessions
 ```http
@@ -652,11 +792,34 @@ PATCH  /api/file-tags/{id}/
 DELETE /api/file-tags/{id}/
 ```
 
-## 🔐 احراز هویت
+## 🔐 احراز هویت و مجوزها
 
 ### استفاده از JWT Token
 
-برای دسترسی به endpoint های محافظت شده، باید Token را در header ارسال کنید:
+سیستم از دو روش برای ارسال توکن پشتیبانی می‌کند:
+
+#### روش 1: HttpOnly Cookies (پیشنهادی)
+
+توکن‌ها به صورت خودکار در HttpOnly cookies ذخیره می‌شوند و در هر درخواست ارسال می‌شوند. این روش امن‌تر است و نیاز به ارسال دستی توکن ندارد.
+
+```python
+import requests
+
+# ایجاد session برای نگهداری cookies
+session = requests.Session()
+
+# ورود و دریافت توکن (cookies به صورت خودکار ذخیره می‌شوند)
+response = session.post('http://127.0.0.1:8000/api/token/', json={
+    'mobile': '09123456789',
+    'password': 'password'
+})
+
+# استفاده از API (cookies به صورت خودکار ارسال می‌شوند)
+missions = session.get('http://127.0.0.1:8000/api/missions/')
+print(missions.json())
+```
+
+#### روش 2: Authorization Header (سازگار با قبل)
 
 ```http
 Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
@@ -665,15 +828,20 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
 ### مثال کامل با cURL
 
 ```bash
-# دریافت Token
+# دریافت Token (با mobile)
 curl -X POST http://127.0.0.1:8000/api/token/ \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "user_id",
+    "mobile": "09123456789",
     "password": "password"
-  }'
+  }' \
+  -c cookies.txt
 
-# استفاده از Token برای دسترسی به API
+# استفاده از Token برای دسترسی به API (با cookies)
+curl -X GET http://127.0.0.1:8000/api/missions/ \
+  -b cookies.txt
+
+# یا با Authorization header
 curl -X GET http://127.0.0.1:8000/api/missions/ \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
@@ -683,18 +851,73 @@ curl -X GET http://127.0.0.1:8000/api/missions/ \
 ```python
 import requests
 
+# ایجاد session برای نگهداری cookies
+session = requests.Session()
+
 # دریافت Token
-response = requests.post('http://127.0.0.1:8000/api/token/', json={
-    'username': 'user_id',
+response = session.post('http://127.0.0.1:8000/api/token/', json={
+    'mobile': '09123456789',
     'password': 'password'
 })
-token = response.json()['access']
 
-# استفاده از Token
-headers = {'Authorization': f'Bearer {token}'}
-missions = requests.get('http://127.0.0.1:8000/api/missions/', headers=headers)
-print(missions.json())
+if response.status_code == 200:
+    data = response.json()
+    access_token = data['access']
+    
+    # روش 1: استفاده از cookies (پیشنهادی)
+    missions = session.get('http://127.0.0.1:8000/api/missions/')
+    print(missions.json())
+    
+    # روش 2: استفاده از Authorization header
+    headers = {'Authorization': f'Bearer {access_token}'}
+    missions = requests.get('http://127.0.0.1:8000/api/missions/', headers=headers)
+    print(missions.json())
 ```
+
+### مجوزها و دسترسی‌ها (Authorization)
+
+سیستم از **Permission-based Authorization** استفاده می‌کند. مجوزها در JWT token ذخیره می‌شوند و نیازی به query کردن پایگاه داده در هر درخواست نیست.
+
+#### استفاده از Permission Classes
+
+```python
+# در views.py
+from users_app.permissions import HasPermission
+
+class AdminViewSet(viewsets.ModelViewSet):
+    permission_classes = [HasPermission('admin.write')]
+    # فقط کاربرانی که مجوز 'admin.write' دارند می‌توانند دسترسی داشته باشند
+```
+
+#### مجوزهای پیش‌فرض
+
+- `admin.read`: دسترسی خواندن برای ادمین
+- `admin.write`: دسترسی نوشتن برای ادمین
+- `admin.delete`: دسترسی حذف برای ادمین
+
+#### بررسی نقش کاربر
+
+```python
+# در view یا serializer
+if request.user.is_admin:
+    # کاربر ادمین است
+    pass
+
+if 'admin' in request.user.roles:
+    # کاربر دارای نقش admin است
+    pass
+
+if 'admin.write' in request.user.permissions:
+    # کاربر دارای مجوز admin.write است
+    pass
+```
+
+### دسترسی‌های چند‌مستاجری
+
+- هر کاربر فقط به داده‌های شرکت خود (`company_id`) دسترسی دارد
+- کاربران با نقش **Admin** به همه داده‌ها دسترسی دارند
+- فیلتر خودکار بر اساس `company_id` در همه ViewSet ها اعمال می‌شود
+- دسترسی به آزمون‌ها محدود به شرکت کاربر است
 
 ## 🧪 تست‌ها
 
@@ -756,11 +979,23 @@ class CompanyTestCase(TestCase):
 - هر کاربر فقط به داده‌های شرکت خود دسترسی دارد
 - کاربران با نقش Admin به همه داده‌ها دسترسی دارند
 - فیلتر خودکار بر اساس `companyId` در همه ViewSet ها اعمال می‌شود
+- دسترسی به آزمون‌ها محدود به شرکت کاربر است
+
+### امنیت JWT
+
+- ✅ **HttpOnly Cookies**: جلوگیری از دسترسی JavaScript به توکن‌ها
+- ✅ **Secure Cookies**: در production، cookies فقط از طریق HTTPS ارسال می‌شوند
+- ✅ **Token Blacklisting**: امکان باطل کردن توکن‌ها هنگام logout
+- ✅ **Token Rotation**: تازه‌سازی توکن‌ها برای افزایش امنیت
+- ✅ **Short-lived Access Tokens**: توکن‌های دسترسی با عمر کوتاه (5 دقیقه)
+- ✅ **Custom Claims**: اطلاعات کاربر در توکن برای کاهش query به پایگاه داده
 
 ### Rate Limiting
 
 - GET requests: 100 درخواست در ساعت
 - POST/PUT/PATCH/DELETE: 50 درخواست در ساعت
+- Login endpoint: 10 درخواست در ساعت
+- User creation: 20 درخواست در ساعت
 
 ### CORS
 
@@ -775,6 +1010,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://your-domain.com",
 ]
+```
+
+**نکته**: برای استفاده از cookies در frontend، باید `credentials: 'include'` را در درخواست‌ها تنظیم کنید:
+
+```javascript
+fetch('http://127.0.0.1:8000/api/missions/', {
+  credentials: 'include'  // برای ارسال cookies
+})
 ```
 
 ## 📊 Pagination
@@ -810,11 +1053,23 @@ python manage.py showmigrations
 
 1. **مدیریت Migration ها**: اگر schema پایگاه داده از قبل وجود دارد، ممکن است نیاز به تنظیم `managed = False` در Meta کلاس مدل‌ها باشد.
 
-2. **JWT Token**: Token ها به مدت 1 ساعت معتبر هستند. برای تازه‌سازی از endpoint `/api/token/refresh/` استفاده کنید.
+2. **JWT Token**: 
+   - Access Token به مدت 5 دقیقه معتبر است
+   - Refresh Token به مدت 1 روز معتبر است
+   - برای تازه‌سازی از endpoint `/api/token/refresh/` استفاده کنید
+   - توکن‌ها به صورت خودکار در HttpOnly cookies ذخیره می‌شوند
 
 3. **CompanyId**: همه درخواست‌ها به صورت خودکار بر اساس `companyId` کاربر فیلتر می‌شوند.
 
 4. **بهینه‌سازی**: از `select_related` برای بهینه‌سازی query ها استفاده شده است.
+
+5. **احراز هویت با Mobile**: سیستم از شماره تلفن به جای username برای ورود استفاده می‌کند.
+
+6. **Permission-based Authorization**: برای دسترسی به endpoint های حساس، از `HasPermission` استفاده کنید.
+
+7. **Token Blacklisting**: پس از logout، توکن refresh باطل می‌شود و نمی‌تواند دوباره استفاده شود.
+
+8. **Timezone**: سیستم از timezone `Asia/Tehran` استفاده می‌کند.
 
 ## 📞 پشتیبانی
 
