@@ -147,7 +147,7 @@ from users_app.views import (
 )
 from roadmap_app.views import (
     MissionViewSet, MissionRelationViewSet,
-    MissionResultViewSet, AbilityViewSet
+    MissionResultViewSet, AbilityViewSet, get_user_missions
 )
 from exam_app.views import (
     EvaluationViewSet, QuestionViewSet, QuizViewSet,
@@ -279,6 +279,8 @@ urlpatterns = [
     path('api/', include(router.urls)),
     # Custom login endpoint with mobile and password
     path('api/login/', csrf_exempt(login), name='login'),
+    # Roadmap app custom endpoints
+    path('api/user-missions/', csrf_exempt(get_user_missions), name='user_missions'),
     # JWT Authentication endpoints (exempt from CSRF)
     # Custom token view that accepts mobile instead of username and sets cookies
     path('api/token/', csrf_exempt(CookieTokenObtainPairView.as_view(serializer_class=CustomTokenObtainPairSerializer)), name='token_obtain_pair'),

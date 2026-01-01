@@ -25,3 +25,8 @@ class AbilitySerializer(serializers.ModelSerializer):
         model = Ability
         fields = '__all__'
 
+
+class UserMissionQuerySerializer(serializers.Serializer):
+    mobile = serializers.CharField(required=True, help_text="شماره تلفن کاربر")
+    company_id = serializers.IntegerField(required=True, help_text="شناسه شرکت")
+
