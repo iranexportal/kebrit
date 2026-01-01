@@ -392,14 +392,13 @@ class QuizViewSet(viewsets.ModelViewSet):
                     quiz_response.save()
                     
                     total_score += score
-                    total_score = total_score
                 
                 # محاسبه درصد
                 total_questions = quiz_questions.count()
                 percentage = (correct_count / total_questions * 100) if total_questions > 0 else 0
                 
                 # بررسی قبولی
-                is_accept = total_score >= quiz.evaluation.accept_score if quiz.evaluation.accept_score else False
+                is_accept = (total_score * 10) >= quiz.evaluation.accept_score if quiz.evaluation.accept_score else False
                 
                 # به‌روزرسانی کوئیز
                 quiz.end_at = timezone.now()
@@ -415,6 +414,19 @@ class QuizViewSet(viewsets.ModelViewSet):
                     quiz=quiz,
                     defaults={'score': round(percentage, 2)}
                 )
+                
+                # اگر کاربر در آزمون قبول شده باشد، MissionResult را ثبت می‌کنیم
+                if is_accept and quiz.evaluation.mission:
+                    from roadmap_app.models import MissionResult
+                    MissionResult.objects.update_or_create(
+                        mission=quiz.evaluation.mission,
+                        user=request.user,
+                        quiz_id=quiz.id,
+                        defaults={
+                            'state': 'completed',
+                            'user_grant': None,
+                        }
+                    )
                 
                 # دریافت تمام پاسخ‌های به‌روزرسانی شده
                 quiz_responses = QuizResponse.objects.filter(quiz=quiz).select_related('question')

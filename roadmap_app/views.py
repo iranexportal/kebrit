@@ -32,6 +32,12 @@ class MissionViewSet(viewsets.ModelViewSet):
             if not is_admin:
                 queryset = queryset.filter(company_id=self.request.user.company_id)
         return queryset
+    
+    def get_serializer_context(self):
+        """اضافه کردن request به context برای دسترسی به کاربر در serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'), name='list')
