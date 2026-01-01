@@ -44,6 +44,7 @@ ALLOWED_HOSTS = [
     'htni.ir',
     'app.htni.ir',
     'ayareto.ir',
+    'ayareto.com',
     'api.ayareto.ir',
     'api.ayareto.com',
 ]
@@ -208,6 +209,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "https://k.htni.ir",
     "https://app.ayareto.ir",
+    "https://htni.ir",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -241,6 +243,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://k.htni.ir",
     "https://app.ayareto.ir",
     "https://api.ayareto.ir",
+    "https://api.ayareto.com",
+    "https://app.ayareto.com",
+    "https://htni.ir",
 ]
 
 # Custom User Model
