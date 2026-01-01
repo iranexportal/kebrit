@@ -3,10 +3,23 @@ from users_app.models import User
 from roadmap_app.models import Mission
 
 
+class EvaluationType(models.Model):
+    id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = 'evaluationType'
+        managed = False
+        app_label = 'exam_app'
+
+    def __str__(self):
+        return self.title if self.title else f"EvaluationType {self.id}"
+
+
 class Evaluation(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=255, null=True, blank=True)
-    type = models.BooleanField()
+    type = models.ForeignKey(EvaluationType, on_delete=models.CASCADE, db_column='type', related_name='evaluations', null=True, blank=True)
     accept_score = models.IntegerField(db_column='acceptscore')
     number_of_question = models.IntegerField(db_column='numberofquestion')
     mission = models.ForeignKey(Mission, on_delete=models.CASCADE, db_column='missionid', related_name='evaluations', null=True, blank=True)
@@ -23,6 +36,7 @@ class Evaluation(models.Model):
         indexes = [
             models.Index(fields=['mission'], name='idx_evaluation_missionId'),
             models.Index(fields=['user'], name='idx_evaluation_userId'),
+            models.Index(fields=['type'], name='idx_evaluation_type'),
         ]
 
     def __str__(self):

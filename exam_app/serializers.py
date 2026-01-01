@@ -1,11 +1,18 @@
 from rest_framework import serializers
-from .models import Evaluation, Question, Quiz, QuizResponse, QuizResponseEvaluation
+from .models import EvaluationType, Evaluation, Question, Quiz, QuizResponse, QuizResponseEvaluation
+
+
+class EvaluationTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EvaluationType
+        fields = '__all__'
 
 
 class EvaluationSerializer(serializers.ModelSerializer):
     questions_count = serializers.SerializerMethodField()
     last_score = serializers.SerializerMethodField()
     last_quiz_id = serializers.SerializerMethodField()
+    type_details = EvaluationTypeSerializer(source='type', read_only=True)
     
     class Meta:
         model = Evaluation

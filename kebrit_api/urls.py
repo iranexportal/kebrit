@@ -150,7 +150,7 @@ from roadmap_app.views import (
     MissionResultViewSet, AbilityViewSet, get_user_missions
 )
 from exam_app.views import (
-    EvaluationViewSet, QuestionViewSet, QuizViewSet,
+    EvaluationTypeViewSet, EvaluationViewSet, QuestionViewSet, QuizViewSet,
     QuizResponseViewSet, QuizResponseEvaluationViewSet
 )
 from media_app.views import (
@@ -258,6 +258,7 @@ router.register(r'mission-results', MissionResultViewSet, basename='missionresul
 router.register(r'abilities', AbilityViewSet, basename='ability')
 
 # Exam app routes
+router.register(r'evaluation-types', EvaluationTypeViewSet, basename='evaluationtype')
 router.register(r'evaluations', EvaluationViewSet, basename='evaluation')
 router.register(r'questions', QuestionViewSet, basename='question')
 router.register(r'quizzes', QuizViewSet, basename='quiz')

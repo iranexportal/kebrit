@@ -7,9 +7,9 @@ from django.db.models import Q
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 import random
-from .models import Evaluation, Question, Quiz, QuizResponse, QuizResponseEvaluation
+from .models import EvaluationType, Evaluation, Question, Quiz, QuizResponse, QuizResponseEvaluation
 from .serializers import (
-    EvaluationSerializer, QuestionSerializer, QuizSerializer,
+    EvaluationTypeSerializer, EvaluationSerializer, QuestionSerializer, QuizSerializer,
     QuizResponseSerializer, QuizResponseEvaluationSerializer,
     QuestionForQuizSerializer, QuizSubmitSerializer, QuizResultSerializer
 )
@@ -22,8 +22,26 @@ from users_app.permissions import CompanyPermission
 @method_decorator(ratelimit(key='ip', rate='50/h', method='PUT'), name='update')
 @method_decorator(ratelimit(key='ip', rate='50/h', method='PATCH'), name='partial_update')
 @method_decorator(ratelimit(key='ip', rate='50/h', method='DELETE'), name='destroy')
+class EvaluationTypeViewSet(viewsets.ModelViewSet):
+    queryset = EvaluationType.objects.all()
+    serializer_class = EvaluationTypeSerializer
+    permission_classes = [CompanyPermission]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # مرتب‌سازی بر اساس id
+        queryset = queryset.order_by('id')
+        return queryset
+
+
+@method_decorator(ratelimit(key='ip', rate='100/h', method='GET'), name='list')
+@method_decorator(ratelimit(key='ip', rate='50/h', method='POST'), name='create')
+@method_decorator(ratelimit(key='ip', rate='100/h', method='GET'), name='retrieve')
+@method_decorator(ratelimit(key='ip', rate='50/h', method='PUT'), name='update')
+@method_decorator(ratelimit(key='ip', rate='50/h', method='PATCH'), name='partial_update')
+@method_decorator(ratelimit(key='ip', rate='50/h', method='DELETE'), name='destroy')
 class EvaluationViewSet(viewsets.ModelViewSet):
-    queryset = Evaluation.objects.select_related('mission', 'mission__company', 'user', 'user__company').all()
+    queryset = Evaluation.objects.select_related('type', 'mission', 'mission__company', 'user', 'user__company').all()
     serializer_class = EvaluationSerializer
     permission_classes = [CompanyPermission]
     
@@ -143,7 +161,7 @@ class QuizViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            evaluation = Evaluation.objects.get(id=evaluation_id, is_active=True)
+            evaluation = Evaluation.objects.select_related('type', 'mission', 'user').get(id=evaluation_id, is_active=True)
         except Evaluation.DoesNotExist:
             return Response(
                 {'error': 'Evaluation یافت نشد یا غیرفعال است'},
