@@ -142,14 +142,32 @@ class QuizViewSet(viewsets.ModelViewSet):
     @method_decorator(ratelimit(key='ip', rate='20/h', method='POST'))
     def start_quiz(self, request):
         """
-        شروع یک کوئیز جدید برای دانشجو
+        شروع یک کوئیز جدید یا بازگرداندن کوئیز فعال
         
-        این endpoint یک کوئیز جدید می‌سازد و به تعداد number_of_question
-        از سوالات evaluation به صورت تصادفی انتخاب می‌کند.
+        این endpoint ابتدا بررسی می‌کند که آیا کوئیز فعالی برای این کاربر و evaluation
+        وجود دارد یا نه. اگر وجود داشته باشد، همان کوئیز فعال را با سوالات و پاسخ‌های
+        فعلی برمی‌گرداند. در غیر این صورت، یک کوئیز جدید می‌سازد و به تعداد
+        number_of_question از سوالات evaluation به صورت تصادفی انتخاب می‌کند.
         
         Body:
         {
             "evaluation_id": 1
+        }
+        
+        Response (اگر کوئیز فعال وجود داشته باشد):
+        {
+            "quiz": {...},
+            "questions": [...],
+            "message": "کوئیز فعال شما بازگردانده شد",
+            "is_existing": true
+        }
+        
+        Response (اگر کوئیز جدید ایجاد شود):
+        {
+            "quiz": {...},
+            "questions": [...],
+            "message": "کوئیز با موفقیت ایجاد شد",
+            "is_existing": false
         }
         """
         evaluation_id = request.data.get('evaluation_id')
@@ -184,16 +202,38 @@ class QuizViewSet(viewsets.ModelViewSet):
             evaluation=evaluation,
             user=request.user,
             state__in=['started', 'in_progress', None]
-        ).exclude(end_at__isnull=False).first()
+        ).exclude(end_at__isnull=False).prefetch_related('responses', 'responses__question').first()
         
+        # اگر کوئیز فعال وجود دارد، همان را برمی‌گردانیم
         if active_quiz:
-            return Response(
-                {
-                    'error': 'یک کوئیز فعال برای این evaluation دارید',
-                    'quiz_id': active_quiz.id
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # دریافت سوالات کوئیز فعال
+            quiz_questions = Question.objects.filter(
+                quiz_responses__quiz=active_quiz
+            ).distinct()
+            
+            # دریافت پاسخ‌های فعلی کاربر
+            responses = active_quiz.responses.all()
+            responses_dict = {r.question_id: {'answer': r.answer, 'done': r.done} for r in responses}
+            
+            # آماده‌سازی سوالات با پاسخ‌های فعلی
+            questions_data = QuestionForQuizSerializer(quiz_questions, many=True).data
+            for question_data in questions_data:
+                question_id = question_data['id']
+                if question_id in responses_dict:
+                    question_data['current_answer'] = responses_dict[question_id]['answer']
+                    question_data['done'] = responses_dict[question_id]['done']
+                else:
+                    question_data['current_answer'] = None
+                    question_data['done'] = None
+            
+            # بازگرداندن کوئیز فعال
+            serializer = self.get_serializer(active_quiz)
+            return Response({
+                'quiz': serializer.data,
+                'questions': questions_data,
+                'message': 'کوئیز فعال شما بازگردانده شد',
+                'is_existing': True
+            }, status=status.HTTP_200_OK)
         
         # دریافت سوالات مربوط به این evaluation
         available_questions = Question.objects.filter(evaluation=evaluation)
@@ -251,7 +291,8 @@ class QuizViewSet(viewsets.ModelViewSet):
                 return Response({
                     'quiz': serializer.data,
                     'questions': questions_data,
-                    'message': 'کوئیز با موفقیت ایجاد شد'
+                    'message': 'کوئیز با موفقیت ایجاد شد',
+                    'is_existing': False
                 }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
