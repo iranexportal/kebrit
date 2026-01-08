@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'roadmap_app',
     'exam_app',
     'media_app.apps.MediaAppConfig',
+    'gaming_app.apps.GamingAppConfig',
 ]
 
 MIDDLEWARE = [
@@ -117,8 +118,8 @@ DATABASES = {
         'PORT': env('DB_PORT'),
         'OPTIONS': {
             # Django tables will be created in 'django' schema
-            # Application tables use their own schemas (roadmap, users, exam, media)
-            'options': '-c search_path=django,roadmap,users,exam,media,public'
+            # Application tables use their own schemas (roadmap, users, exam, media, gaming)
+            'options': '-c search_path=django,roadmap,users,exam,media,gaming,public'
         },
     }
 }

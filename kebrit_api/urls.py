@@ -156,6 +156,10 @@ from exam_app.views import (
 from media_app.views import (
     FileViewSet, TagViewSet, FileTagViewSet
 )
+from gaming_app.views import (
+    LevelViewSet, UserLevelViewSet, BadgeViewSet,
+    UserBadgeViewSet, UserPointViewSet, UserActionViewSet
+)
 
 
 # ADD THIS: Custom token refresh view that supports cookies
@@ -269,6 +273,14 @@ router.register(r'quiz-response-evaluations', QuizResponseEvaluationViewSet, bas
 router.register(r'files', FileViewSet, basename='file')
 router.register(r'tags', TagViewSet, basename='tag')
 router.register(r'file-tags', FileTagViewSet, basename='filetag')
+
+# Gaming app routes
+router.register(r'levels', LevelViewSet, basename='level')
+router.register(r'user-levels', UserLevelViewSet, basename='userlevel')
+router.register(r'badges', BadgeViewSet, basename='badge')
+router.register(r'user-badges', UserBadgeViewSet, basename='userbadge')
+router.register(r'user-points', UserPointViewSet, basename='userpoint')
+router.register(r'user-actions', UserActionViewSet, basename='useraction')
 
 # Note: csrf_exempt cannot be used directly with include().
 # For DRF routers, CSRF exemption is typically handled at the viewset level or via settings.
