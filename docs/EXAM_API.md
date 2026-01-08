@@ -72,6 +72,7 @@ GET /api/evaluations/
       "questions_count": 10,
       "last_score": 85.5,
       "last_quiz_id": 5,
+      "last_quiz_state": "completed",
       "type_details": {
         "id": 1,
         "title": "آزمون کوتاه"
@@ -83,8 +84,9 @@ GET /api/evaluations/
 
 **فیلدهای اضافی:**
 - `questions_count`: تعداد سوالات موجود در بانک سوالات
-- `last_score`: نمره آخرین آزمون کاربر (درصد)
+- `last_score`: نمره آخرین آزمون کاربر (درصد) - فقط برای کوئیزهای تمام شده
 - `last_quiz_id`: شناسه آخرین کوئیز کاربر
+- `last_quiz_state`: وضعیت آخرین کوئیز کاربر (`started`, `in_progress`, `completed`, `pending`, یا `null` اگر کوئیز وجود نداشته باشد)
 
 ---
 
@@ -390,17 +392,21 @@ POST /api/quizzes/submit/
   "responses": [
     {
       "question_id": 1,
-      "answer": 2,
+      "answer": "2",  // برای سوالات چندگزینه‌ای: عدد (1-4) به صورت string
       "done": "completed"
     },
     {
       "question_id": 2,
-      "answer": 1,
+      "answer": "پاسخ تشریحی کاربر برای این سوال...",  // برای سوالات تشریحی: متن
       "done": "completed"
     }
   ]
 }
 ```
+
+**نکته:** فیلد `answer` می‌تواند:
+- **برای سوالات چندگزینه‌ای** (`question.type = true`): یک عدد (1-4) به صورت string که شماره گزینه را نشان می‌دهد
+- **برای سوالات تشریحی** (`question.type = false`): یک متن که پاسخ تشریحی کاربر است
 
 **Response (200 OK):**
 ```json
@@ -420,8 +426,17 @@ POST /api/quizzes/submit/
         "id": 1,
         "quiz": 1,
         "question": 1,
-        "answer": 2,
+        "answer": "2",  // برای چندگزینه‌ای: عدد به صورت string
         "score": 1.0,
+        "done": "completed",
+        "question_details": {...}
+      },
+      {
+        "id": 2,
+        "quiz": 1,
+        "question": 2,
+        "answer": "پاسخ تشریحی کاربر...",  // برای تشریحی: متن
+        "score": 0.0,  // برای سوالات تشریحی، نمره باید بعداً توسط مدرس تعیین شود
         "done": "completed",
         "question_details": {...}
       }
@@ -431,7 +446,9 @@ POST /api/quizzes/submit/
 ```
 
 **نکته:** 
-- پس از ارسال پاسخ‌ها، نمره به صورت خودکار محاسبه می‌شود
+- برای سوالات چندگزینه‌ای: نمره به صورت خودکار محاسبه می‌شود (مقایسه با `question.correct`)
+- برای سوالات تشریحی: نمره به صورت خودکار 0 تنظیم می‌شود و باید بعداً توسط مدرس تعیین شود
+- فقط سوالات چندگزینه‌ای در محاسبه درصد (`percentage`) در نظر گرفته می‌شوند
 - اگر کاربر در آزمون قبول شده باشد (`is_accept: true`) و ماموریت مرتبطی وجود داشته باشد، `MissionResult` به صورت خودکار ثبت می‌شود
 
 ---
@@ -570,11 +587,23 @@ const quizId = quiz.id;
 
 ```javascript
 // آماده کردن پاسخ‌ها
-const responses = questions.map(question => ({
-  question_id: question.id,
-  answer: selectedAnswers[question.id], // پاسخ انتخاب شده توسط کاربر
-  done: 'completed'
-}));
+const responses = questions.map(question => {
+  let answer;
+  
+  if (question.type) {
+    // سوال چندگزینه‌ای: answer باید عدد (1-4) باشد
+    answer = selectedAnswers[question.id].toString(); // تبدیل به string
+  } else {
+    // سوال تشریحی: answer باید متن باشد
+    answer = textAnswers[question.id]; // پاسخ متنی کاربر
+  }
+  
+  return {
+    question_id: question.id,
+    answer: answer,
+    done: 'completed'
+  };
+});
 
 // ارسال پاسخ‌ها
 const submitResponse = await fetch('http://localhost:8000/api/quizzes/submit/', {
@@ -593,6 +622,13 @@ const result = await submitResponse.json();
 console.log('نتیجه:', result.result);
 console.log('نمره:', result.result.percentage);
 console.log('وضعیت قبولی:', result.result.is_accept);
+
+// بررسی پاسخ‌های تشریحی که نمره 0 دارند
+result.result.responses.forEach(response => {
+  if (response.score === 0 && response.question_details.type === false) {
+    console.log(`سوال ${response.question} تشریحی است و نیاز به بررسی مدرس دارد`);
+  }
+});
 ```
 
 ### دریافت نتیجه کوئیز
@@ -666,8 +702,15 @@ console.log('نتیجه نهایی:', result);
 
 4. **انتخاب تصادفی سوالات:** سوالات به صورت تصادفی از بانک سوالات انتخاب می‌شوند (فقط برای کوئیز جدید).
 
-5. **محاسبه خودکار نمره:** پس از ارسال پاسخ‌ها، نمره به صورت خودکار محاسبه می‌شود.
+5. **سوالات چندگزینه‌ای و تشریحی:**
+   - **چندگزینه‌ای** (`question.type = true`): `answer` باید یک عدد (1-4) به صورت string باشد. نمره به صورت خودکار محاسبه می‌شود (مقایسه با `question.correct`).
+   - **تشریحی** (`question.type = false`): `answer` باید یک متن باشد. نمره به صورت خودکار 0 تنظیم می‌شود و باید بعداً توسط مدرس تعیین شود.
 
-6. **ثبت خودکار MissionResult:** اگر کاربر در آزمون قبول شود و ماموریت مرتبطی وجود داشته باشد، نتیجه ماموریت به صورت خودکار ثبت می‌شود.
+6. **محاسبه نمره:**
+   - برای سوالات چندگزینه‌ای: نمره به صورت خودکار محاسبه می‌شود.
+   - برای سوالات تشریحی: نمره 0 است و باید بعداً توسط مدرس تعیین شود.
+   - فقط سوالات چندگزینه‌ای در محاسبه درصد (`percentage`) در نظر گرفته می‌شوند.
 
-7. **عدم نمایش پاسخ صحیح:** در سوالات کوئیز، پاسخ صحیح نمایش داده نمی‌شود (فقط برای مدرسان در endpoint سوالات ارزیابی).
+7. **ثبت خودکار MissionResult:** اگر کاربر در آزمون قبول شود و ماموریت مرتبطی وجود داشته باشد، نتیجه ماموریت به صورت خودکار ثبت می‌شود.
+
+8. **عدم نمایش پاسخ صحیح:** در سوالات کوئیز، پاسخ صحیح نمایش داده نمی‌شود (فقط برای مدرسان در endpoint سوالات ارزیابی).

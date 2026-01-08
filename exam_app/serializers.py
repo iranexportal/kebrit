@@ -12,6 +12,7 @@ class EvaluationSerializer(serializers.ModelSerializer):
     questions_count = serializers.SerializerMethodField()
     last_score = serializers.SerializerMethodField()
     last_quiz_id = serializers.SerializerMethodField()
+    last_quiz_state = serializers.SerializerMethodField()
     type_details = EvaluationTypeSerializer(source='type', read_only=True)
     
     class Meta:
@@ -21,6 +22,25 @@ class EvaluationSerializer(serializers.ModelSerializer):
     def get_questions_count(self, obj):
         """تعداد سوالات موجود در بانک سوالات این evaluation"""
         return obj.questions.count()
+    
+    def _get_last_quiz_data(self, obj):
+        """کش کردن آخرین quiz برای جلوگیری از query های تکراری"""
+        if not hasattr(obj, '_last_quiz_cache'):
+            request = self.context.get('request')
+            if not request or not request.user or not request.user.is_authenticated:
+                obj._last_quiz_cache = None
+            else:
+                try:
+                    # پیدا کردن آخرین quiz کاربر برای این evaluation (فعال یا تمام شده)
+                    last_quiz = Quiz.objects.filter(
+                        evaluation=obj,
+                        user=request.user
+                    ).order_by('-start_at').first()
+                    
+                    obj._last_quiz_cache = last_quiz
+                except Exception:
+                    obj._last_quiz_cache = None
+        return obj._last_quiz_cache
     
     def _get_last_evaluation_data(self, obj):
         """کش کردن آخرین evaluation برای جلوگیری از query های تکراری"""
@@ -54,6 +74,13 @@ class EvaluationSerializer(serializers.ModelSerializer):
         last_evaluation = self._get_last_evaluation_data(obj)
         if last_evaluation:
             return last_evaluation.quiz_id
+        return None
+    
+    def get_last_quiz_state(self, obj):
+        """وضعیت آخرین کوئیز کاربر برای این evaluation"""
+        last_quiz = self._get_last_quiz_data(obj)
+        if last_quiz and last_quiz.state:
+            return last_quiz.state
         return None
 
 
@@ -110,7 +137,7 @@ class QuizResponseSerializer(serializers.ModelSerializer):
 class QuizResponseSubmitSerializer(serializers.Serializer):
     """Serializer برای ارسال پاسخ‌های کوئیز"""
     question_id = serializers.IntegerField(required=True)
-    answer = serializers.IntegerField(required=True, allow_null=True)
+    answer = serializers.CharField(required=True, allow_null=True, allow_blank=True)  # می‌تواند integer (string) یا text باشد
     done = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 

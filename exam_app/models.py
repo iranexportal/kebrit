@@ -48,16 +48,16 @@ class Evaluation(models.Model):
 class Question(models.Model):
     id = models.AutoField(primary_key=True)
     evaluation = models.ForeignKey(Evaluation, on_delete=models.CASCADE, db_column='evaluationid', related_name='questions')
-    description = models.TextField()
-    img = models.CharField(max_length=255, null=True, blank=True)
-    type = models.BooleanField()
-    c1 = models.TextField(null=True, blank=True)
-    c2 = models.TextField(null=True, blank=True)
-    c3 = models.TextField(null=True, blank=True)
-    c4 = models.TextField(null=True, blank=True)
-    correct = models.IntegerField(null=True, blank=True)
-    answer = models.TextField(null=True, blank=True)
-    weight = models.FloatField(null=True, blank=True)
+    description = models.TextField(default=None)
+    img = models.CharField(max_length=255, null=True, blank=True, default=None)
+    type = models.BooleanField(default=True)
+    c1 = models.TextField(null=True, blank=True, default=None)
+    c2 = models.TextField(null=True, blank=True, default=None)
+    c3 = models.TextField(null=True, blank=True, default=None)
+    c4 = models.TextField(null=True, blank=True, default=None)
+    correct = models.IntegerField(null=True, blank=True, default=None)
+    answer = models.TextField(null=True, blank=True, default=None)
+    weight = models.FloatField(null=True, blank=True, default=1.0)
     can_shuffle = models.BooleanField(db_column='canshuffle', default=False)
 
     class Meta:
@@ -99,7 +99,7 @@ class QuizResponse(models.Model):
     id = models.AutoField(primary_key=True)
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, db_column='quizid', related_name='responses')
     question = models.ForeignKey(Question, on_delete=models.CASCADE, db_column='questionid', related_name='quiz_responses')
-    answer = models.IntegerField(null=True, blank=True)
+    answer = models.TextField(null=True, blank=True)  # می‌تواند integer (برای چندگزینه‌ای) یا text (برای تشریحی) باشد
     score = models.FloatField(null=True, blank=True)
     done = models.CharField(max_length=255, null=True, blank=True)
 

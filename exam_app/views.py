@@ -310,13 +310,27 @@ class QuizViewSet(viewsets.ModelViewSet):
         این endpoint پاسخ‌های دانشجو را دریافت می‌کند، نمره هر سوال را محاسبه می‌کند
         و درصد نمره (percentage) را در QuizResponseEvaluation به عنوان کارنامه کلی آزمون ذخیره می‌کند.
         
+        برای سوالات چندگزینه‌ای (question.type = true):
+        - answer باید یک عدد (integer) باشد که شماره گزینه را نشان می‌دهد
+        - نمره به صورت خودکار محاسبه می‌شود (مقایسه با question.correct)
+        
+        برای سوالات تشریحی (question.type = false):
+        - answer باید یک متن (string) باشد که پاسخ تشریحی کاربر است
+        - نمره به صورت خودکار 0 تنظیم می‌شود (باید بعداً توسط مدرس تعیین شود)
+        - فقط سوالات چندگزینه‌ای در محاسبه درصد در نظر گرفته می‌شوند
+        
         Body:
         {
             "quiz_id": 1,
             "responses": [
                 {
                     "question_id": 1,
-                    "answer": 2,
+                    "answer": 2,  // برای چندگزینه‌ای: عدد (1-4)
+                    "done": "completed"
+                },
+                {
+                    "question_id": 2,
+                    "answer": "پاسخ تشریحی کاربر...",  // برای تشریحی: متن
                     "done": "completed"
                 },
                 ...
@@ -385,6 +399,7 @@ class QuizViewSet(viewsets.ModelViewSet):
                 total_score = 0.0
                 correct_count = 0
                 wrong_count = 0
+                multiple_choice_count = 0  # تعداد سوالات چندگزینه‌ای
                 
                 # پردازش هر پاسخ
                 for response_data in responses_data:
@@ -413,39 +428,62 @@ class QuizViewSet(viewsets.ModelViewSet):
                             done=None
                         )
                     
-                    # محاسبه نمره
+                    # محاسبه نمره بر اساس نوع سوال
                     is_correct = False
                     score = 0.0
                     
-                    if student_answer is not None and question.correct is not None:
-                        if student_answer == question.correct:
-                            is_correct = True
-                            correct_count += 1
-                            # استفاده از weight اگر وجود داشته باشد، در غیر این صورت 1
-                            score = question.weight if question.weight else 1.0
-                        else:
-                            wrong_count += 1
+                    if question.type:  # سوال چندگزینه‌ای (type = True)
+                        multiple_choice_count += 1
+                        # تبدیل answer به integer برای مقایسه
+                        try:
+                            student_answer_int = int(student_answer) if student_answer is not None and student_answer != '' else None
+                        except (ValueError, TypeError):
+                            student_answer_int = None
+                        
+                        if student_answer_int is not None and question.correct is not None:
+                            if student_answer_int == question.correct:
+                                is_correct = True
+                                correct_count += 1
+                                # استفاده از weight اگر وجود داشته باشد، در غیر این صورت 1
+                                score = question.weight if question.weight else 1.0
+                            else:
+                                wrong_count += 1
+                        
+                        # ذخیره answer به صورت string (برای سازگاری)
+                        quiz_response.answer = str(student_answer_int) if student_answer_int is not None else None
+                    else:  # سوال تشریحی (type = False)
+                        # برای سوالات تشریحی، answer به صورت text ذخیره می‌شود
+                        # نمره به صورت دستی توسط مدرس داده می‌شود، پس فعلاً 0 می‌گذاریم
+                        quiz_response.answer = student_answer if student_answer else None
+                        score = 0.0  # نمره باید بعداً توسط مدرس تعیین شود
+                        # برای سوالات تشریحی، correct_count و wrong_count را افزایش نمی‌دهیم
                     
                     # به‌روزرسانی QuizResponse
-                    quiz_response.answer = student_answer
                     quiz_response.score = score
                     quiz_response.done = done
                     quiz_response.save()
                     
                     total_score += score
                 
-                # محاسبه درصد
+                # محاسبه درصد (فقط برای سوالات چندگزینه‌ای)
+                # اگر سوالات تشریحی وجود داشته باشند، فقط سوالات چندگزینه‌ای در محاسبه درصد در نظر گرفته می‌شوند
+                percentage = (correct_count / multiple_choice_count * 100) if multiple_choice_count > 0 else 0
+                
+                # تعداد کل سوالات
                 total_questions = quiz_questions.count()
-                percentage = (correct_count / total_questions * 100) if total_questions > 0 else 0
                 
                 # بررسی قبولی
-                is_accept = (total_score * 10) >= quiz.evaluation.accept_score if quiz.evaluation.accept_score else False
+                is_accept = percentage >= quiz.evaluation.accept_score if quiz.evaluation.accept_score else False
                 
                 # به‌روزرسانی کوئیز
                 quiz.end_at = timezone.now()
-                quiz.score = total_score * 10
+                quiz.score = total_score
                 quiz.is_accept = is_accept
-                quiz.state = 'completed'
+                print(quiz.evaluation.type.id)
+                if (quiz.evaluation.type.id == 1 or quiz.evaluation.type.id == 3):
+                    quiz.state = 'completed'
+                elif (quiz.evaluation.type.id == 2 or quiz.evaluation.type.id == 4):
+                    quiz.state = 'pending'
                 quiz.save()
                 
                 # ایجاد QuizResponseEvaluation برای کل کوئیز (کارنامه کلی آزمون)
