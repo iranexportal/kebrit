@@ -15,9 +15,8 @@ db.sqlite3
 *.env
 
 # Django/Migrations
-*/migrations/
+# NOTE: We commit migrations to keep schema changes reproducible.
 */migrations/*.pyc
-*/migrations/*.py
 
 # VSCode and PyCharm
 .vscode/
@@ -25,7 +24,7 @@ db.sqlite3
 
 # macOS
 .DS_Store
-
+test.html
 # OS Files
 Thumbs.db
 

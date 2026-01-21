@@ -179,21 +179,15 @@ def login(request):
     
     mobile = serializer.validated_data['mobile']
     token_uuid = serializer.validated_data['token']
-    
-    try:
-        user = User.objects.get(mobile=mobile)
-    except User.DoesNotExist:
+
+    token_obj = Token.objects.select_related('user', 'user__company').filter(uuid=token_uuid).first()
+    if not token_obj or token_obj.user.mobile != mobile:
         return Response(
             {'error': 'شماره تلفن یا توکن اشتباه است'},
             status=status.HTTP_401_UNAUTHORIZED
         )
-    
-    # بررسی توکن
-    if not Token.objects.filter(uuid=token_uuid, user=user).exists():
-        return Response(
-            {'error': 'شماره تلفن یا توکن اشتباه است'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
+
+    user = token_obj.user
     
     # ایجاد JWT token
     refresh = RefreshToken.for_user(user)

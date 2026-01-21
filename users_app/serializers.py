@@ -67,15 +67,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         
         if not mobile or not token_uuid:
             raise serializers.ValidationError('شماره تلفن و توکن الزامی است')
-        
-        # Find user by mobile
-        try:
-            user = User.objects.get(mobile=mobile)
-        except User.DoesNotExist:
+
+        # Identify user by token (mobile may not be globally unique)
+        token_obj = Token.objects.select_related('user', 'user__company').filter(uuid=token_uuid).first()
+        if not token_obj:
             raise serializers.ValidationError('شماره تلفن یا توکن اشتباه است')
-        
-        # Check token belongs to this user
-        if not Token.objects.filter(uuid=token_uuid, user=user).exists():
+
+        user = token_obj.user
+        if user.mobile != mobile:
             raise serializers.ValidationError('شماره تلفن یا توکن اشتباه است')
         
         # Generate token using parent method

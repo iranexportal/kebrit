@@ -134,6 +134,7 @@ api/
 برای یادگیری نحوه استفاده از API های هر بخش، به فایل‌های مستندات زیر مراجعه کنید:
 
 - **[Users API Documentation](docs/USERS_API.md)** - مدیریت کاربران، احراز هویت و نقش‌ها
+- **[Integration API Documentation](docs/INTEGRATION_API.md)** - یکپارچه‌سازی مشتری‌ها و جریان شروع/پایان آزمون دانشجو
 - **[Roadmap API Documentation](docs/ROADMAP_API.md)** - مدیریت ماموریت‌ها و مسیرهای یادگیری
 - **[Exam API Documentation](docs/EXAM_API.md)** - مدیریت آزمون‌ها، سوالات و پاسخ‌ها
 - **[Media API Documentation](docs/MEDIA_API.md)** - مدیریت فایل‌ها و تگ‌ها
@@ -204,6 +205,7 @@ Authorization: Bearer <access_token>
 # Django Settings
 SECRET_KEY=your-secret-key-here
 DEBUG=True
+EXAM_FRONT_BASE_URL=https://app.example.com/exam
 
 # Database Settings
 DB_NAME=kebrit_db

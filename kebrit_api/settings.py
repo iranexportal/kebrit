@@ -38,16 +38,8 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-7lht3a&6zlzd%(%yv^8w2=zq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    'htni.ir',
-    'app.htni.ir',
-    'ayareto.ir',
-    'ayareto.com',
-    'api.ayareto.ir',
-    'api.ayareto.com',
-]
+ALLOWED_HOSTS = ['localhost','127.0.0.1','htni.ir','app.htni.ir','ayareto.ir','ayareto.com','app.ayareto.com','app.ayareto.ir','api.ayareto.ir','api.ayareto.com']
+
 
 
 # Application definition
@@ -204,6 +196,10 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_PATH': '/',
 }
 
+# Exam frontend base URL used for returning exam_url in integration launch endpoint.
+# Example: https://app.ayareto.ir/exam
+EXAM_FRONT_BASE_URL = env('EXAM_FRONT_BASE_URL', default='')
+
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -257,5 +253,4 @@ AUTH_USER_MODEL = 'users_app.User'
 # Use our custom backend for Django admin authentication
 AUTHENTICATION_BACKENDS = [
     'users_app.backends.CustomUserBackend',
-    'django.contrib.auth.backends.ModelBackend',  # Fallback to default
 ]

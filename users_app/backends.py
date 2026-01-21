@@ -18,24 +18,31 @@ class CustomUserBackend(ModelBackend):
         The Django admin login form only provides a "password" field, so we
         accept the token UUID in the password input for admin access.
         """
-        UserModel = get_user_model()
-        
-        # Try to get mobile from username or kwargs
-        mobile = username or kwargs.get('mobile')
+        # Try to get login identifier from username field
+        login_username = username or kwargs.get('username') or kwargs.get('mobile')
         token_uuid = password or kwargs.get('token')
-        if not mobile or not token_uuid:
+        if not token_uuid:
             return None
-        
-        try:
-            user = UserModel.objects.get(mobile=mobile)
-        except UserModel.DoesNotExist:
+
+        # Use token to uniquely identify the user (mobile is no longer globally unique)
+        token_obj = Token.objects.select_related('user').filter(uuid=token_uuid).first()
+        if not token_obj:
             return None
+
+        user = token_obj.user
+        if login_username:
+            # If user has a username, admin must login with it
+            if getattr(user, 'username', None):
+                if user.username != login_username:
+                    return None
+            else:
+                # Fallback for legacy rows without username set
+                if user.mobile != login_username:
+                    return None
+
+        return user
         
-        # Check API token belongs to this user
-        if Token.objects.filter(uuid=token_uuid, user=user).exists():
-            return user
-        
-        return None
+        # unreachable
     
     def get_user(self, user_id):
         """
