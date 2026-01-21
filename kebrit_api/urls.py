@@ -290,7 +290,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),  # Admin panel requires CSRF
     # API endpoints are exempt from CSRF (API-only, using JWT)
     path('api/', include(router.urls)),
-    # Custom login endpoint with mobile and password
+    # Custom login endpoint with mobile and token (passwordless)
     path('api/login/', csrf_exempt(login), name='login'),
     # Roadmap app custom endpoints
     path('api/user-missions/', csrf_exempt(get_user_missions), name='user_missions'),

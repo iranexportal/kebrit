@@ -22,7 +22,7 @@ Authorization: Bearer <access_token>
 
 ## 1. دریافت Token (ورود)
 
-برای ورود به سیستم و دریافت JWT token.
+برای دریافت JWT token بدون نیاز به رمز عبور (با استفاده از token سازمان/مشتری).
 
 **Endpoint:**
 ```
@@ -38,7 +38,7 @@ Content-Type: application/json
 ```json
 {
   "mobile": "09123456789",
-  "password": "your-password"
+  "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 }
 ```
 
@@ -54,14 +54,14 @@ Content-Type: application/json
 ```json
 {
   "mobile": ["این فیلد الزامی است."],
-  "password": ["این فیلد الزامی است."]
+  "token": ["این فیلد الزامی است."]
 }
 ```
 
 **Response (401 Unauthorized):**
 ```json
 {
-  "detail": "شماره تلفن یا رمز عبور اشتباه است"
+  "detail": "شماره تلفن یا توکن اشتباه است"
 }
 ```
 
@@ -130,7 +130,7 @@ Content-Type: application/json
 
 ## 4. ایجاد کاربر جدید
 
-ایجاد کاربر جدید با رمز عبور تصادفی (بدون نیاز به احراز هویت).
+ایجاد کاربر جدید (بدون رمز عبور) و صدور توکن (بدون نیاز به احراز هویت).
 
 **Endpoint:**
 ```
@@ -155,16 +155,16 @@ Content-Type: application/json
 **Response (201 Created):**
 ```json
 {
-  "id": 1,
+  "message": "کاربر با موفقیت ایجاد شد",
+  "user_id": 1,
   "name": "نام کاربر",
   "mobile": "09123456789",
-  "company_id": 1,
-  "uuid": "شناسه-یکتای-درون-سازمانی",
-  "password": "aB3$kL9mN2pQ"
+  "company": "نام شرکت",
+  "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 }
 ```
 
-**نکته:** رمز عبور به صورت خودکار تولید می‌شود و در پاسخ برگردانده می‌شود.
+**نکته:** توکن به صورت خودکار تولید می‌شود و فقط یک بار در پاسخ برگردانده می‌شود.
 
 ---
 
@@ -198,8 +198,7 @@ Authorization: Bearer <access_token>
       "uuid": "uuid-123",
       "company": 1,
       "mobile": "09123456789",
-      "name": "نام کاربر",
-      "password": "****"
+      "name": "نام کاربر"
     }
   ]
 }
@@ -228,8 +227,7 @@ Authorization: Bearer <access_token>
   "uuid": "uuid-123",
   "company": 1,
   "mobile": "09123456789",
-  "name": "نام کاربر",
-  "password": "****"
+  "name": "نام کاربر"
 }
 ```
 
@@ -466,7 +464,7 @@ const response = await fetch('http://localhost:8000/api/token/', {
   },
   body: JSON.stringify({
     mobile: '09123456789',
-    password: 'password123'
+    token: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
   })
 });
 
@@ -498,7 +496,7 @@ const api = axios.create({
 // دریافت Token
 const loginResponse = await api.post('/token/', {
   mobile: '09123456789',
-  password: 'password123'
+  token: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 });
 
 const accessToken = loginResponse.data.access;

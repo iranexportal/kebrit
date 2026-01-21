@@ -13,11 +13,10 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
-        extra_kwargs = {'password': {'write_only': True}}
 
 
 class UserCreateSerializer(serializers.Serializer):
-    """Serializer for creating a new user with auto-generated password"""
+    """Serializer for creating a new user (passwordless)."""
     name = serializers.CharField(max_length=100, required=True)
     company_id = serializers.IntegerField(required=True)
     uuid = serializers.CharField(max_length=255, required=True)
@@ -37,14 +36,15 @@ class UserCreateSerializer(serializers.Serializer):
 
 
 class UserLoginSerializer(serializers.Serializer):
-    """Serializer for user login with mobile and password"""
+    """Serializer for token-based login (passwordless)."""
     mobile = serializers.CharField(max_length=20, required=True)
-    password = serializers.CharField(max_length=255, required=True, write_only=True)
+    token = serializers.UUIDField(required=True, write_only=True)
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Custom JWT serializer that accepts mobile instead of username"""
+    """Custom JWT serializer that accepts mobile + API token UUID (passwordless)."""
     mobile = serializers.CharField()
+    token = serializers.UUIDField(write_only=True)
     username = None  # Remove username field
     
     def __init__(self, *args, **kwargs):
@@ -53,26 +53,30 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Remove username field if it exists and ensure mobile exists
         if 'username' in self.fields:
             del self.fields['username']
+        if 'password' in self.fields:
+            del self.fields['password']
         if 'mobile' not in self.fields:
             self.fields['mobile'] = serializers.CharField()
+        if 'token' not in self.fields:
+            self.fields['token'] = serializers.UUIDField(write_only=True)
     
     def validate(self, attrs):
         # Get mobile from attrs (or from username if it exists)
         mobile = attrs.get('mobile') or attrs.get('username')
-        password = attrs.get('password')
+        token_uuid = attrs.get('token') or attrs.get('password')
         
-        if not mobile or not password:
-            raise serializers.ValidationError('شماره تلفن و رمز عبور الزامی است')
+        if not mobile or not token_uuid:
+            raise serializers.ValidationError('شماره تلفن و توکن الزامی است')
         
         # Find user by mobile
         try:
             user = User.objects.get(mobile=mobile)
         except User.DoesNotExist:
-            raise serializers.ValidationError('شماره تلفن یا رمز عبور اشتباه است')
+            raise serializers.ValidationError('شماره تلفن یا توکن اشتباه است')
         
-        # Check password (plain text comparison since we store plain passwords)
-        if user.password != password:
-            raise serializers.ValidationError('شماره تلفن یا رمز عبور اشتباه است')
+        # Check token belongs to this user
+        if not Token.objects.filter(uuid=token_uuid, user=user).exists():
+            raise serializers.ValidationError('شماره تلفن یا توکن اشتباه است')
         
         # Generate token using parent method
         refresh = self.get_token(user)

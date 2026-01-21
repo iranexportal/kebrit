@@ -4,8 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
-import secrets
-import string
+import uuid
 from .models import Company, User, Session, Token, Role, UserRole
 from .serializers import (
     CompanySerializer, UserSerializer, SessionSerializer,
@@ -53,10 +52,10 @@ class UserViewSet(viewsets.ModelViewSet):
     @method_decorator(ratelimit(key='ip', rate='20/h', method='POST'))
     def create_user(self, request):
         """
-        ایجاد کاربر جدید با رمز عبور تصادفی
+        ایجاد کاربر جدید (بدون رمز عبور) و صدور توکن
         
-        این endpoint یک کاربر جدید می‌سازد و یک رمز عبور 12 کاراکتری تصادفی
-        برای او ایجاد می‌کند.
+        این endpoint یک کاربر جدید می‌سازد و یک توکن (UUID) برای احراز هویت
+        سمت سامانه‌ی مشتری صادر می‌کند.
         
         Body:
         {
@@ -73,11 +72,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # تولید رمز عبور 12 کاراکتری تصادفی
-        # شامل اعداد، حروف بزرگ و کوچک، و کاراکترهای خاص
-        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-        password = ''.join(secrets.choice(alphabet) for _ in range(12))
-        
         try:
             company = Company.objects.get(id=serializer.validated_data['company_id'])
             
@@ -93,8 +87,13 @@ class UserViewSet(viewsets.ModelViewSet):
                 name=serializer.validated_data['name'],
                 company=company,
                 uuid=serializer.validated_data['uuid'],
-                mobile=serializer.validated_data['mobile'],
-                password=password
+                mobile=serializer.validated_data['mobile']
+            )
+
+            # صدور توکن برای احراز هویت (API token)
+            api_token = Token.objects.create(
+                uuid=uuid.uuid4(),
+                user=user
             )
             
             return Response({
@@ -103,7 +102,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 'name': user.name,
                 'mobile': user.mobile,
                 'company': company.name,
-                'password': password  # فقط یک بار نمایش داده می‌شود
+                'token': str(api_token.uuid)  # فقط یک بار نمایش داده می‌شود
             }, status=status.HTTP_201_CREATED)
             
         except Company.DoesNotExist:
@@ -160,15 +159,15 @@ class UserViewSet(viewsets.ModelViewSet):
 @ratelimit(key='ip', rate='10/h', method='POST')
 def login(request):
     """
-    لاگین کاربر با شماره تلفن و رمز عبور
+    دریافت JWT با شماره تلفن و توکن (بدون رمز عبور)
     
-    این endpoint کاربر را با شماره تلفن و رمز عبور احراز هویت می‌کند
+    این endpoint کاربر را با شماره تلفن و token (UUID) احراز هویت می‌کند
     و یک JWT token برمی‌گرداند.
     
     Body:
     {
         "mobile": "09123456789",
-        "password": "رمزعبور"
+        "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     }
     """
     serializer = UserLoginSerializer(data=request.data)
@@ -179,32 +178,35 @@ def login(request):
         )
     
     mobile = serializer.validated_data['mobile']
-    password = serializer.validated_data['password']
+    token_uuid = serializer.validated_data['token']
     
     try:
         user = User.objects.get(mobile=mobile)
     except User.DoesNotExist:
         return Response(
-            {'error': 'شماره تلفن یا رمز عبور اشتباه است'},
+            {'error': 'شماره تلفن یا توکن اشتباه است'},
             status=status.HTTP_401_UNAUTHORIZED
         )
     
-    # بررسی رمز عبور
-    if user.password != password:
+    # بررسی توکن
+    if not Token.objects.filter(uuid=token_uuid, user=user).exists():
         return Response(
-            {'error': 'شماره تلفن یا رمز عبور اشتباه است'},
+            {'error': 'شماره تلفن یا توکن اشتباه است'},
             status=status.HTTP_401_UNAUTHORIZED
         )
     
     # ایجاد JWT token
-    refresh = RefreshToken()
-    refresh['user_id'] = user.id
+    refresh = RefreshToken.for_user(user)
+    refresh['company_id'] = user.company_id
+    refresh['name'] = user.name
+    refresh['mobile'] = user.mobile
     
     # Add role and permissions to token
     user_roles = user.user_roles.select_related('role').all()
     roles = [ur.role.title for ur in user_roles]
     refresh['role'] = roles[0] if roles else None
     refresh['roles'] = roles
+    refresh['is_admin'] = 'admin' in [r.lower() for r in roles]
     
     # Add permissions based on roles
     permissions = []

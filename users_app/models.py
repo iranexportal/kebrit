@@ -30,7 +30,6 @@ class User(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='companyid', related_name='users')
     mobile = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100)
-    password = models.CharField(max_length=255)
     
     # Custom manager
     objects = UserManager()
@@ -79,14 +78,6 @@ class User(models.Model):
     def is_anonymous(self):
         """Required for Django authentication"""
         return False
-    
-    def check_password(self, raw_password):
-        """Check password (plain text comparison since we store plain passwords)"""
-        return self.password == raw_password
-    
-    def set_password(self, raw_password):
-        """Set password (plain text storage)"""
-        self.password = raw_password
     
     def get_username(self):
         """Return the username (mobile) for this user"""

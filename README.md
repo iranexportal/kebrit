@@ -151,7 +151,7 @@ Content-Type: application/json
 
 {
   "mobile": "09123456789",
-  "password": "your-password"
+  "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 }
 ```
 
