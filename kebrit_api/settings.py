@@ -231,6 +231,7 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'x-client-token',  # برای احراز هویت دانشجویان و مشتریان
 ]
 
 # CSRF trusted origins (for admin panel)

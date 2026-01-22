@@ -38,13 +38,13 @@ class UserCreateSerializer(serializers.Serializer):
 class UserLoginSerializer(serializers.Serializer):
     """Serializer for token-based login (passwordless)."""
     mobile = serializers.CharField(max_length=20, required=True)
-    token = serializers.UUIDField(required=True, write_only=True)
+    # Note: token is now read from header (X-Client-Token or Authorization: Token)
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Custom JWT serializer that accepts mobile + API token UUID (passwordless)."""
     mobile = serializers.CharField()
-    token = serializers.UUIDField(write_only=True)
+    # Note: token is now read from header (X-Client-Token or Authorization: Token)
     username = None  # Remove username field
     
     def __init__(self, *args, **kwargs):
@@ -57,16 +57,39 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             del self.fields['password']
         if 'mobile' not in self.fields:
             self.fields['mobile'] = serializers.CharField()
-        if 'token' not in self.fields:
-            self.fields['token'] = serializers.UUIDField(write_only=True)
+        # Remove token field - it's now read from header
+        if 'token' in self.fields:
+            del self.fields['token']
     
     def validate(self, attrs):
-        # Get mobile from attrs (or from username if it exists)
+        # Get mobile from attrs
         mobile = attrs.get('mobile') or attrs.get('username')
-        token_uuid = attrs.get('token') or attrs.get('password')
         
-        if not mobile or not token_uuid:
-            raise serializers.ValidationError('شماره تلفن و توکن الزامی است')
+        # Get token from header
+        request = self.context.get('request')
+        if not request:
+            raise serializers.ValidationError('درخواست در دسترس نیست')
+        
+        token = request.headers.get('X-Client-Token')
+        if not token:
+            auth = request.headers.get('Authorization', '')
+            if auth:
+                parts = auth.split()
+                if len(parts) == 2 and parts[0] == 'Token':
+                    token = parts[1]
+        
+        if not token:
+            raise serializers.ValidationError('توکن در header ارسال نشده است. از X-Client-Token یا Authorization: Token استفاده کنید')
+        
+        # Convert token to UUID
+        try:
+            import uuid
+            token_uuid = uuid.UUID(str(token))
+        except (ValueError, TypeError):
+            raise serializers.ValidationError('فرمت توکن نامعتبر است')
+        
+        if not mobile:
+            raise serializers.ValidationError('شماره تلفن الزامی است')
 
         # Identify user by token (mobile may not be globally unique)
         token_obj = Token.objects.select_related('user', 'user__company').filter(uuid=token_uuid).first()

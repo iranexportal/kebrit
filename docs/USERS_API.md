@@ -35,15 +35,22 @@ POST /api/token/
 **Headers:**
 ```
 Content-Type: application/json
+X-Client-Token: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+یا
+```
+Content-Type: application/json
+Authorization: Token xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Request Body:**
 ```json
 {
-  "mobile": "09123456789",
-  "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  "mobile": "09123456789"
 }
 ```
+
+> **نکته امنیتی**: مقدار `token` باید در **header** درخواست ارسال شود، نه در body. این کار امنیت بیشتری دارد و از قرار گرفتن token در لاگ‌ها جلوگیری می‌کند.
 
 **Response (200 OK):**
 ```json

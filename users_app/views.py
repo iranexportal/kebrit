@@ -164,12 +164,41 @@ def login(request):
     این endpoint کاربر را با شماره تلفن و token (UUID) احراز هویت می‌کند
     و یک JWT token برمی‌گرداند.
     
+    Headers:
+    - X-Client-Token: <token_uuid> (پیشنهادی)
+    - Authorization: Token <token_uuid> (جایگزین)
+    
     Body:
     {
-        "mobile": "09123456789",
-        "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        "mobile": "09123456789"
     }
     """
+    # دریافت token از header
+    token = request.headers.get('X-Client-Token')
+    if not token:
+        auth = request.headers.get('Authorization', '')
+        if auth:
+            parts = auth.split()
+            if len(parts) == 2 and parts[0] == 'Token':
+                token = parts[1]
+    
+    if not token:
+        return Response(
+            {'error': 'توکن در header ارسال نشده است. از X-Client-Token یا Authorization: Token استفاده کنید'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # تبدیل token به UUID
+    try:
+        import uuid
+        token_uuid = uuid.UUID(str(token))
+    except (ValueError, TypeError):
+        return Response(
+            {'error': 'فرمت توکن نامعتبر است'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # دریافت mobile از body
     serializer = UserLoginSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(
@@ -178,7 +207,6 @@ def login(request):
         )
     
     mobile = serializer.validated_data['mobile']
-    token_uuid = serializer.validated_data['token']
 
     token_obj = Token.objects.select_related('user', 'user__company').filter(uuid=token_uuid).first()
     if not token_obj or token_obj.user.mobile != mobile:
