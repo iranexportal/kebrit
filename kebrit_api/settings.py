@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',  # ADD THIS: Token blacklisting support
     'corsheaders',
+    'drf_yasg',  # Swagger/OpenAPI documentation
     # Local apps
     'kebrit_api',  # ADD THIS: For migrations
     'users_app',
@@ -255,3 +256,37 @@ AUTH_USER_MODEL = 'users_app.User'
 AUTHENTICATION_BACKENDS = [
     'users_app.backends.CustomUserBackend',
 ]
+
+# Swagger/OpenAPI Settings
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'JWT token authentication. Format: "Bearer {token}"'
+        },
+        'ClientToken': {
+            'type': 'apiKey',
+            'name': 'X-Client-Token',
+            'in': 'header',
+            'description': 'Client API token for customer authentication'
+        }
+    },
+    'USE_SESSION_AUTH': False,
+    'JSON_EDITOR': False,
+    'SUPPORTED_SUBMIT_METHODS': [],  # Disable Try it out button - read-only mode
+    'OPERATIONS_SORTER': 'alpha',
+    'TAGS_SORTER': 'alpha',
+    'DOC_EXPANSION': 'list',
+    'DEEP_LINKING': True,
+    'SHOW_EXTENSIONS': True,
+    'DEFAULT_MODEL_RENDERING': 'example',
+}
+
+REDOC_SETTINGS = {
+    'LAZY_RENDERING': True,
+    'HIDE_HOSTNAME': False,
+    'EXPAND_RESPONSES': '200,201',
+    'PATH_IN_MIDDLE': True,
+}

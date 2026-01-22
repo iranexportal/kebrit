@@ -5,7 +5,7 @@ The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/6.0/topics/http/urls/
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import routers
 from rest_framework_simplejwt.views import (
@@ -18,6 +18,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 from users_app.serializers import CustomTokenObtainPairSerializer
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+from rest_framework import permissions
 
 
 # ADD THIS: Custom token obtain view that sets cookies
@@ -294,6 +297,40 @@ router.register(r'user-actions', UserActionViewSet, basename='useraction')
 # For DRF routers, CSRF exemption is typically handled at the viewset level or via settings.
 # REST Framework viewsets handle CSRF exemption automatically for API requests.
 
+# Swagger/OpenAPI Schema View
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Kebrit API",
+        default_version='v1',
+        description="""
+        مستندات کامل API سامانه Kebrit
+        
+        این API برای مدیریت کاربران، آزمون‌ها، ماموریت‌ها، فایل‌ها و سیستم gamification طراحی شده است.
+        
+        ## احراز هویت
+        
+        ### برای دانشجویان:
+        - استفاده از JWT Token
+        - Header: `Authorization: Bearer <access_token>`
+        
+        ### برای مشتریان (Integration):
+        - استفاده از Client Token
+        - Header: `X-Client-Token: <client_token_uuid>`
+        - یا: `Authorization: Token <client_token_uuid>`
+        
+        ## نکات مهم:
+        - تمام endpoint های API نیاز به احراز هویت دارند (به جز endpoint های login و launch)
+        - برای یکپارچه‌سازی با سامانه Kebrit، به مستندات `docs/INTEGRATION_API.md` مراجعه کنید
+        """,
+        terms_of_service="https://www.ayareto.com/terms/",
+        contact=openapi.Contact(email="support@ayareto.com"),
+        license=openapi.License(name="Proprietary"),
+    ),
+    public=True,  # Allow access without authentication for documentation
+    permission_classes=(permissions.AllowAny,),  # Read-only access
+    # patterns will be auto-discovered from urlpatterns
+)
+
 urlpatterns = [
     path('admin/', admin.site.urls),  # Admin panel requires CSRF
     # API endpoints are exempt from CSRF (API-only, using JWT)
@@ -316,4 +353,8 @@ urlpatterns = [
     path('api/token/refresh/', csrf_exempt(CookieTokenRefreshView.as_view()), name='token_refresh'),
     path('api/token/verify/', csrf_exempt(TokenVerifyView.as_view()), name='token_verify'),
     path('api/token/logout/', csrf_exempt(TokenLogoutView.as_view()), name='token_logout'),
+    # Swagger/OpenAPI Documentation (Read-only - نمایش مستندات بدون امکان اجرا)
+    re_path(r'^doc(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
+    path('doc/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
