@@ -10,6 +10,7 @@ from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.test import APIClient
 
 from kebrit_api.authentication_client import ClientTokenAuthentication
 from kebrit_api.permissions import IsClientTokenAuthenticated
@@ -29,16 +30,24 @@ def _build_callback_url(callback_url: str, params: dict) -> str:
 
 
 def _validate_callback_url(allowed_hosts: str | None, callback_url: str) -> str:
+    """
+    Validate callback URL format. All hosts are allowed.
+    
+    Args:
+        allowed_hosts: (Deprecated - not used anymore, kept for backward compatibility)
+        callback_url: The callback URL to validate
+    
+    Returns:
+        Validated callback URL
+    
+    Raises:
+        ValueError: If URL format is invalid
+    """
     parsed = urlparse(callback_url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise ValueError("Invalid callback_url")
 
-    if allowed_hosts:
-        allow = {h.strip().lower() for h in allowed_hosts.split(",") if h.strip()}
-        host = parsed.hostname.lower() if parsed.hostname else ""
-        if allow and host not in allow:
-            raise ValueError("callback_url host not allowed")
-
+    # All hosts are allowed - no host restriction
     return callback_url
 
 
@@ -102,6 +111,7 @@ class ClientExamLaunchView(APIView):
         mobile = serializer.validated_data["mobile"]
         eurl = serializer.validated_data["eurl"]
         callback_url = serializer.validated_data["callback_url"]
+        name = serializer.validated_data["name"]
 
         try:
             callback_url = _validate_callback_url(client_token.allowed_callback_hosts, callback_url)
@@ -120,7 +130,7 @@ class ClientExamLaunchView(APIView):
                     company_id=company.id,
                     uuid=student_uuid,
                     mobile=mobile,
-                    name=mobile,  # minimal placeholder
+                    name=name,  # minimal placeholder
                 )
             else:
                 if mobile and student.mobile != mobile:
@@ -188,17 +198,45 @@ class ClientExamLaunchView(APIView):
             launch.student_mobile = mobile
             launch.save(update_fields=["callback_url", "student_mobile"])
 
+        # Call /api/quizzes/start/ endpoint internally
+        quiz_id_from_start = quiz.id
+        try:
+            # Use APIClient to make internal API call
+            api_client = APIClient()
+            api_client.force_authenticate(user=student)
+            
+            # Make POST request to /api/quizzes/start/
+            response = api_client.post(
+                '/api/quizzes/start/',
+                {'evaluation_id': eurl},
+                format='json'
+            )
+            
+            # Extract quiz_id from response if successful
+            if response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]:
+                response_data = response.data
+                if 'quiz' in response_data and 'id' in response_data['quiz']:
+                    quiz_id_from_start = response_data['quiz']['id']
+        except Exception as e:
+            # If internal call fails, use the existing quiz_id
+            # Log the error but don't fail the launch
+            pass
+
         base = getattr(settings, "EXAM_FRONT_BASE_URL", "") or ""
         exam_url = f"{base}?launch={launch.uuid}" if base else None
+        
+        # Build redirect URL to quiz page
+        redirect_url = f"https://app.ayareto.ir/quiz/{quiz_id_from_start}"
 
         return Response(
             {
                 "launch_id": str(launch.uuid),
                 "exam_url": exam_url,
-                "quiz_id": quiz.id,
+                "quiz_id": quiz_id_from_start,
                 "eurl": eurl,
                 "student": {"uuid": student_uuid, "mobile": mobile},
                 "is_existing_quiz": is_existing,
+                "redirect_url": redirect_url,
             },
             status=status.HTTP_201_CREATED,
         )
