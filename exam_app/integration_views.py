@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from kebrit_api.authentication_client import ClientTokenAuthentication
 from kebrit_api.permissions import IsClientTokenAuthenticated
@@ -231,8 +232,31 @@ class ClientExamLaunchView(APIView):
         base = getattr(settings, "EXAM_FRONT_BASE_URL", "") or ""
         exam_url = f"{base}?launch={launch.uuid}" if base else None
         
-        # Build redirect URL to quiz page
-        redirect_url = f"https://app.ayareto.ir/quiz/{quiz_id_from_start}"
+        # Generate JWT token for the student to authenticate with app.ayareto.ir
+        refresh = RefreshToken.for_user(student)
+        refresh['company_id'] = student.company_id
+        refresh['name'] = student.name
+        refresh['mobile'] = student.mobile
+        
+        # Add role and permissions to token (if student has roles)
+        user_roles = student.user_roles.select_related('role').all()
+        roles = [ur.role.title for ur in user_roles]
+        refresh['role'] = roles[0] if roles else None
+        refresh['roles'] = roles
+        refresh['is_admin'] = 'admin' in [r.lower() for r in roles]
+        
+        # Add permissions based on roles
+        permissions = []
+        for user_role in user_roles:
+            role_title = user_role.role.title.lower()
+            if role_title == 'admin':
+                permissions.extend(['admin.read', 'admin.write', 'admin.delete'])
+        refresh['permissions'] = list(set(permissions))
+        
+        access_token = str(refresh.access_token)
+        
+        # Build redirect URL to quiz page with JWT token as query parameter
+        redirect_url = f"https://app.ayareto.ir/quiz/{quiz_id_from_start}?token={access_token}"
 
         return Response(
             {
