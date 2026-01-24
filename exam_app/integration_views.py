@@ -111,7 +111,7 @@ class ClientExamLaunchView(APIView):
         mobile = serializer.validated_data["mobile"]
         eurl = serializer.validated_data["eurl"]
         callback_url = serializer.validated_data["callback_url"]
-        name = serializer.validated_data["name"]
+        name = serializer.validated_data.get("name", "")
 
         try:
             callback_url = _validate_callback_url(client_token.allowed_callback_hosts, callback_url)
@@ -133,9 +133,15 @@ class ClientExamLaunchView(APIView):
                     name=name,  # minimal placeholder
                 )
             else:
+                update_fields = []
                 if mobile and student.mobile != mobile:
                     student.mobile = mobile
-                    student.save(update_fields=["mobile"])
+                    update_fields.append("mobile")
+                if name and student.name != name:
+                    student.name = name
+                    update_fields.append("name")
+                if update_fields:
+                    student.save(update_fields=update_fields)
         except IntegrityError:
             return Response(
                 {"error": "خطا در ایجاد دانشجو (احتمالاً migration های یکتایی mobile اعمال نشده‌اند)"},

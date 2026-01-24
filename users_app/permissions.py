@@ -5,15 +5,34 @@ class CompanyPermission(permissions.BasePermission):
     """
     Custom permission to ensure users can only access data where companyId matches their own company.
     Admin roles have broader access.
+    Supports both JWT authentication (User objects) and ClientToken authentication (ClientPrincipal).
     """
     
     def has_permission(self, request, view):
         # Allow read/write for authenticated users
-        if not request.user or not request.user.is_authenticated:
+        if not request.user:
             return False
+        
+        # Check if authenticated (works for both User and ClientPrincipal)
+        if not getattr(request.user, 'is_authenticated', False):
+            return False
+        
         return True
     
     def has_object_permission(self, request, view, obj):
+        # Handle ClientToken authentication (ClientPrincipal)
+        if hasattr(request, 'auth_company') and request.auth_company:
+            # For client token auth, check if object belongs to the client's company
+            if hasattr(obj, 'company'):
+                return obj.company_id == request.auth_company.id
+            elif hasattr(obj, 'companyId'):
+                return obj.companyId == request.auth_company.id
+            elif hasattr(obj, 'user'):
+                # For user-related objects, check if user belongs to client's company
+                return obj.user.company_id == request.auth_company.id
+            return False
+        
+        # Handle JWT authentication (User objects)
         # Check if user has admin role
         if hasattr(request.user, 'user_roles'):
             user_roles = request.user.user_roles.all()
@@ -22,13 +41,17 @@ class CompanyPermission(permissions.BasePermission):
                     return True
         
         # For non-admin users, check companyId match
+        user_company_id = getattr(request.user, 'company_id', None)
+        if not user_company_id:
+            return False
+        
         if hasattr(obj, 'company'):
-            return obj.company_id == request.user.company_id
+            return obj.company_id == user_company_id
         elif hasattr(obj, 'companyId'):
-            return obj.companyId == request.user.company_id
+            return obj.companyId == user_company_id
         elif hasattr(obj, 'user'):
             # For user-related objects, check if it's the same user or same company
-            if obj.user.company_id == request.user.company_id:
+            if obj.user.company_id == user_company_id:
                 return True
             return obj.user_id == request.user.id
         

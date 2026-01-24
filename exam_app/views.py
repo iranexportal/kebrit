@@ -14,6 +14,8 @@ from .serializers import (
     QuestionForQuizSerializer, QuizSubmitSerializer, QuizResultSerializer
 )
 from users_app.permissions import CompanyPermission
+from kebrit_api.authentication_client import ClientTokenAuthentication
+from users_app.authentication import CustomJWTAuthentication
 
 
 @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'), name='list')
@@ -125,11 +127,17 @@ class QuestionViewSet(viewsets.ModelViewSet):
 class QuizViewSet(viewsets.ModelViewSet):
     queryset = Quiz.objects.select_related('evaluation', 'evaluation__user', 'evaluation__user__company', 'user', 'user__company').all()
     serializer_class = QuizSerializer
+    authentication_classes = [CustomJWTAuthentication, ClientTokenAuthentication]
     permission_classes = [CompanyPermission]
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
+        # Handle ClientToken authentication
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            # For client token auth, filter by company
+            queryset = queryset.filter(user__company_id=self.request.auth_company.id)
+        # Handle JWT authentication
+        elif hasattr(self.request.user, 'company_id') and hasattr(self.request.user, 'user_roles'):
             user_roles = self.request.user.user_roles.all()
             is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
             if not is_admin:
@@ -541,7 +549,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         دریافت سوالات یک کوئیز فعال
         """
         try:
-            quiz = Quiz.objects.select_related('evaluation', 'user').prefetch_related(
+            quiz = Quiz.objects.select_related('evaluation', 'user', 'user__company').prefetch_related(
                 'responses', 'responses__question'
             ).get(id=pk)
         except Quiz.DoesNotExist:
@@ -550,16 +558,27 @@ class QuizViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # بررسی دسترسی
-        if quiz.user_id != request.user.id:
-            if hasattr(request.user, 'company_id'):
-                user_roles = request.user.user_roles.all()
-                is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-                if not is_admin:
-                    return Response(
-                        {'error': 'دسترسی به این کوئیز ندارید'},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
+        # بررسی دسترسی - پشتیبانی از هر دو نوع احراز هویت (JWT و ClientToken)
+        # اگر با ClientToken احراز هویت شده باشد
+        if hasattr(request, 'auth_company') and request.auth_company:
+            # بررسی اینکه کوئیز متعلق به همان شرکت مشتری باشد
+            if quiz.user.company_id != request.auth_company.id:
+                return Response(
+                    {'error': 'دسترسی به این کوئیز ندارید'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        # اگر با JWT احراز هویت شده باشد
+        elif hasattr(request.user, 'id'):
+            # بررسی دسترسی کاربر عادی
+            if quiz.user_id != request.user.id:
+                if hasattr(request.user, 'company_id'):
+                    user_roles = request.user.user_roles.all()
+                    is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
+                    if not is_admin:
+                        return Response(
+                            {'error': 'دسترسی به این کوئیز ندارید'},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
         
         # دریافت سوالات کوئیز
         questions = Question.objects.filter(

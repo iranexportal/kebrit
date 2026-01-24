@@ -10,6 +10,7 @@ class ClientExamLaunchSerializer(serializers.Serializer):
     mobile = serializers.CharField(max_length=20, required=True)
     eurl = serializers.IntegerField(required=True)  # evaluation id
     callback_url = serializers.URLField(required=True, max_length=2000)
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
 
 class LaunchAnswerSerializer(serializers.Serializer):
