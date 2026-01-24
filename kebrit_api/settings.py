@@ -207,6 +207,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "https://k.htni.ir",
     "https://app.ayareto.ir",
+    "https://app.ayareto.com",
     "https://htni.ir",
 ]
 

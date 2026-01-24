@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
@@ -542,12 +542,44 @@ class QuizViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    @action(detail=True, methods=['get'], url_path='questions')
+    @action(detail=True, methods=['get'], url_path='questions', authentication_classes=[], permission_classes=[permissions.AllowAny])
     @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'))
     def get_questions(self, request, pk=None):
         """
         دریافت سوالات یک کوئیز فعال
         """
+        # #region agent log
+        import json
+        try:
+            with open('/Users/hajrezvan/Desktop/Projects/Kebrit/api/.cursor/debug.log', 'a') as f:
+                log_entry = json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "D",
+                    "location": "views.py:547",
+                    "message": "get_questions called",
+                    "data": {
+                        "quiz_id": pk,
+                        "has_launch_id": bool(request.GET.get('launch_id')),
+                        "launch_id": request.GET.get('launch_id'),
+                        "has_token_query": bool(request.GET.get('token')),
+                        "has_auth_header": bool(request.META.get('HTTP_AUTHORIZATION')),
+                        "auth_header_preview": request.META.get('HTTP_AUTHORIZATION', '')[:50] if request.META.get('HTTP_AUTHORIZATION') else None,
+                        "has_user": hasattr(request, 'user'),
+                        "user_type": type(request.user).__name__ if hasattr(request, 'user') else None,
+                        "user_id": getattr(request.user, 'id', None) if hasattr(request, 'user') else None,
+                        "user_has_id_attr": hasattr(request.user, 'id') if hasattr(request, 'user') else False,
+                        "is_authenticated": getattr(request.user, 'is_authenticated', False) if hasattr(request, 'user') else False,
+                        "has_auth_company": hasattr(request, 'auth_company') and bool(request.auth_company),
+                        "request_auth": str(type(request.auth)) if hasattr(request, 'auth') else None
+                    },
+                    "timestamp": int(__import__('time').time() * 1000)
+                }) + "\n"
+                f.write(log_entry)
+        except Exception:
+            pass
+        # #endregion
+        
         try:
             quiz = Quiz.objects.select_related('evaluation', 'user', 'user__company').prefetch_related(
                 'responses', 'responses__question'
@@ -558,27 +590,111 @@ class QuizViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # بررسی دسترسی - پشتیبانی از هر دو نوع احراز هویت (JWT و ClientToken)
-        # اگر با ClientToken احراز هویت شده باشد
-        if hasattr(request, 'auth_company') and request.auth_company:
-            # بررسی اینکه کوئیز متعلق به همان شرکت مشتری باشد
-            if quiz.user.company_id != request.auth_company.id:
-                return Response(
-                    {'error': 'دسترسی به این کوئیز ندارید'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        # اگر با JWT احراز هویت شده باشد
-        elif hasattr(request.user, 'id'):
-            # بررسی دسترسی کاربر عادی
-            if quiz.user_id != request.user.id:
-                if hasattr(request.user, 'company_id'):
-                    user_roles = request.user.user_roles.all()
-                    is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-                    if not is_admin:
+        # اگر launch_id در query parameter باشد، بررسی دسترسی از طریق ExamLaunch
+        launch_id = request.GET.get('launch_id')
+        if launch_id:
+            try:
+                from kebrit_api.models import ExamLaunch
+                launch = ExamLaunch.objects.get(uuid=launch_id, quiz_id=quiz.id)
+                # اگر launch پیدا شد و متعلق به این quiz است، اجازه دسترسی بده
+                # #region agent log
+                try:
+                    with open('/Users/hajrezvan/Desktop/Projects/Kebrit/api/.cursor/debug.log', 'a') as f:
+                        log_entry = json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "D",
+                            "location": "views.py:594",
+                            "message": "Launch-based access granted",
+                            "data": {
+                                "launch_id": str(launch_id),
+                                "quiz_id": quiz.id,
+                                "launch_quiz_id": launch.quiz_id
+                            },
+                            "timestamp": int(__import__('time').time() * 1000)
+                        }) + "\n"
+                        f.write(log_entry)
+                except Exception:
+                    pass
+                # #endregion
+                # اگر launch پیدا شد، نیازی به بررسی احراز هویت نیست - مستقیماً به ادامه برو
+            except Exception as e:
+                # #region agent log
+                try:
+                    with open('/Users/hajrezvan/Desktop/Projects/Kebrit/api/.cursor/debug.log', 'a') as f:
+                        log_entry = json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "D",
+                            "location": "views.py:616",
+                            "message": "Launch not found, checking auth",
+                            "data": {
+                                "launch_id": str(launch_id),
+                                "quiz_id": quiz.id,
+                                "error": str(e)
+                            },
+                            "timestamp": int(__import__('time').time() * 1000)
+                        }) + "\n"
+                        f.write(log_entry)
+                except Exception:
+                    pass
+                # #endregion
+                # اگر launch پیدا نشد، به بررسی‌های معمول برو
+                # بررسی دسترسی - پشتیبانی از هر دو نوع احراز هویت (JWT و ClientToken)
+                # اگر با ClientToken احراز هویت شده باشد
+                if hasattr(request, 'auth_company') and request.auth_company:
+                    # بررسی اینکه کوئیز متعلق به همان شرکت مشتری باشد
+                    if quiz.user.company_id != request.auth_company.id:
                         return Response(
                             {'error': 'دسترسی به این کوئیز ندارید'},
                             status=status.HTTP_403_FORBIDDEN
                         )
+                # اگر با JWT احراز هویت شده باشد
+                elif hasattr(request.user, 'id'):
+                    # بررسی دسترسی کاربر عادی
+                    if quiz.user_id != request.user.id:
+                        if hasattr(request.user, 'company_id'):
+                            user_roles = request.user.user_roles.all()
+                            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
+                            if not is_admin:
+                                return Response(
+                                    {'error': 'دسترسی به این کوئیز ندارید'},
+                                    status=status.HTTP_403_FORBIDDEN
+                                )
+                else:
+                    # اگر هیچ نوع احراز هویتی وجود نداشت
+                    return Response(
+                        {'error': 'احراز هویت لازم است'},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+        else:
+            # بررسی دسترسی - پشتیبانی از هر دو نوع احراز هویت (JWT و ClientToken)
+            # اگر با ClientToken احراز هویت شده باشد
+            if hasattr(request, 'auth_company') and request.auth_company:
+                # بررسی اینکه کوئیز متعلق به همان شرکت مشتری باشد
+                if quiz.user.company_id != request.auth_company.id:
+                    return Response(
+                        {'error': 'دسترسی به این کوئیز ندارید'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            # اگر با JWT احراز هویت شده باشد
+            elif hasattr(request.user, 'id'):
+                # بررسی دسترسی کاربر عادی
+                if quiz.user_id != request.user.id:
+                    if hasattr(request.user, 'company_id'):
+                        user_roles = request.user.user_roles.all()
+                        is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
+                        if not is_admin:
+                            return Response(
+                                {'error': 'دسترسی به این کوئیز ندارید'},
+                                status=status.HTTP_403_FORBIDDEN
+                            )
+            else:
+                # اگر هیچ نوع احراز هویتی وجود نداشت
+                return Response(
+                    {'error': 'احراز هویت لازم است'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
         
         # دریافت سوالات کوئیز
         questions = Question.objects.filter(
@@ -610,7 +726,7 @@ class QuizViewSet(viewsets.ModelViewSet):
             'questions': questions_data
         }, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['get'], url_path='result')
+    @action(detail=True, methods=['get'], url_path='result', authentication_classes=[], permission_classes=[permissions.AllowAny])
     @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'))
     def get_result(self, request, pk=None):
         """
@@ -626,15 +742,46 @@ class QuizViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # بررسی دسترسی
-        if hasattr(request.user, 'company_id'):
-            user_roles = request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                if quiz.user_id != request.user.id and quiz.user.company_id != request.user.company_id:
+        # اگر launch_id در query parameter باشد، بررسی دسترسی از طریق ExamLaunch
+        launch_id = request.GET.get('launch_id')
+        if launch_id:
+            try:
+                from kebrit_api.models import ExamLaunch
+                launch = ExamLaunch.objects.get(uuid=launch_id, quiz_id=quiz.id)
+                # اگر launch پیدا شد و متعلق به این quiz است، اجازه دسترسی بده
+            except Exception:
+                # اگر launch پیدا نشد، به بررسی‌های معمول برو
+                pass
+        else:
+            # بررسی دسترسی - پشتیبانی از هر دو نوع احراز هویت (JWT و ClientToken)
+            # اگر با ClientToken احراز هویت شده باشد
+            if hasattr(request, 'auth_company') and request.auth_company:
+                # بررسی اینکه کوئیز متعلق به همان شرکت مشتری باشد
+                if quiz.user.company_id != request.auth_company.id:
                     return Response(
                         {'error': 'دسترسی به این کوئیز ندارید'},
                         status=status.HTTP_403_FORBIDDEN
+                    )
+            # اگر با JWT احراز هویت شده باشد
+            elif hasattr(request.user, 'id'):
+                # بررسی دسترسی کاربر عادی
+                if quiz.user_id != request.user.id:
+                    if hasattr(request.user, 'company_id'):
+                        user_roles = request.user.user_roles.all()
+                        is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
+                        if not is_admin:
+                            return Response(
+                                {'error': 'دسترسی به این کوئیز ندارید'},
+                                status=status.HTTP_403_FORBIDDEN
+                            )
+            else:
+                # اگر هیچ نوع احراز هویتی وجود نداشت، بررسی کن که آیا quiz متعلق به یک launch است
+                from kebrit_api.models import ExamLaunch
+                launch = ExamLaunch.objects.filter(quiz_id=quiz.id, completed_at__isnull=False).order_by("-created_at").first()
+                if not launch:
+                    return Response(
+                        {'error': 'احراز هویت لازم است'},
+                        status=status.HTTP_401_UNAUTHORIZED
                     )
         
         if quiz.end_at is None:

@@ -340,11 +340,11 @@ urlpatterns = [
     # Customer integration endpoints (client token in header)
     path('api/integration/exams/<int:eurl>/', csrf_exempt(ClientExamInfoView.as_view()), name='integration_exam_info'),
     path('api/integration/exams/launch/', csrf_exempt(ClientExamLaunchView.as_view()), name='integration_exam_launch'),
-    # Student launch endpoints (launch UUID in URL)
-    path('api/launch/<uuid:launch_id>/', csrf_exempt(LaunchDetailView.as_view()), name='launch_detail'),
-    path('api/launch/<uuid:launch_id>/answer/', csrf_exempt(LaunchAnswerView.as_view()), name='launch_answer'),
-    path('api/launch/<uuid:launch_id>/submit/', csrf_exempt(LaunchSubmitView.as_view()), name='launch_submit'),
-    path('api/launch/<uuid:launch_id>/redirect/', csrf_exempt(LaunchRedirectView.as_view()), name='launch_redirect'),
+    # Student quiz endpoints (quiz_id in URL)
+    path('api/quiz/<int:quiz_id>/', csrf_exempt(LaunchDetailView.as_view()), name='quiz_detail'),
+    path('api/quiz/<int:quiz_id>/answer/', csrf_exempt(LaunchAnswerView.as_view()), name='quiz_answer'),
+    path('api/quiz/<int:quiz_id>/submit/', csrf_exempt(LaunchSubmitView.as_view()), name='quiz_submit'),
+    path('api/quiz/<int:quiz_id>/redirect/', csrf_exempt(LaunchRedirectView.as_view()), name='quiz_redirect'),
     # Roadmap app custom endpoints
     path('api/user-missions/', csrf_exempt(get_user_missions), name='user_missions'),
     # JWT Authentication endpoints (exempt from CSRF)

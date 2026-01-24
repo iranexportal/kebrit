@@ -255,8 +255,33 @@ class ClientExamLaunchView(APIView):
         
         access_token = str(refresh.access_token)
         
+        # #region agent log
+        import json
+        import os
+        try:
+            with open('/Users/hajrezvan/Desktop/Projects/Kebrit/api/.cursor/debug.log', 'a') as f:
+                log_entry = json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "integration_views.py:256",
+                    "message": "JWT token generated for student",
+                    "data": {
+                        "student_id": student.id,
+                        "student_uuid": student_uuid,
+                        "access_token_length": len(access_token),
+                        "access_token_preview": access_token[:20] + "..." if len(access_token) > 20 else access_token
+                    },
+                    "timestamp": int(timezone.now().timestamp() * 1000)
+                }) + "\n"
+                f.write(log_entry)
+        except Exception:
+            pass
+        # #endregion
+        
         # Build redirect URL to quiz page with JWT token as query parameter
         redirect_url = f"https://app.ayareto.ir/quiz/{quiz_id_from_start}?token={access_token}"
+        # redirect_url = f"http://localhost:3000/quiz/{quiz_id_from_start}?token={access_token}"
 
         return Response(
             {
@@ -267,6 +292,7 @@ class ClientExamLaunchView(APIView):
                 "student": {"uuid": student_uuid, "mobile": mobile},
                 "is_existing_quiz": is_existing,
                 "redirect_url": redirect_url,
+                "access_token": access_token,  # Add access_token to response
             },
             status=status.HTTP_201_CREATED,
         )
@@ -274,22 +300,22 @@ class ClientExamLaunchView(APIView):
 
 class LaunchDetailView(APIView):
     """
-    Student-facing: fetch quiz questions by launch id.
+    Student-facing: fetch quiz questions by quiz_id.
     """
 
     permission_classes = []
     authentication_classes = []
 
-    def get(self, request, launch_id):
+    def get(self, request, quiz_id):
         try:
-            launch = ExamLaunch.objects.get(uuid=launch_id)
-        except ExamLaunch.DoesNotExist:
-            return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            quiz = Quiz.objects.select_related("evaluation", "user").prefetch_related("responses", "responses__question").get(id=launch.quiz_id)
+            quiz = Quiz.objects.select_related("evaluation", "user").prefetch_related("responses", "responses__question").get(id=quiz_id)
         except Quiz.DoesNotExist:
             return Response({"error": "Quiz یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Find active launch for this quiz
+        launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=True).order_by("-created_at").first()
+        if not launch:
+            return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
 
         # Collect questions with current answers
         questions = Question.objects.filter(quiz_responses__quiz=quiz).distinct()
@@ -332,20 +358,20 @@ class LaunchAnswerView(APIView):
     permission_classes = []
     authentication_classes = []
 
-    def post(self, request, launch_id):
+    def post(self, request, quiz_id):
         serializer = LaunchAnswerSerializer(data=request.data)
         if not serializer.is_valid():
             return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            launch = ExamLaunch.objects.get(uuid=launch_id)
-        except ExamLaunch.DoesNotExist:
-            return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            quiz = Quiz.objects.get(id=launch.quiz_id)
+            quiz = Quiz.objects.get(id=quiz_id)
         except Quiz.DoesNotExist:
             return Response({"error": "Quiz یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Find active launch for this quiz
+        launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=True).order_by("-created_at").first()
+        if not launch:
+            return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
 
         if quiz.end_at is not None:
             return Response({"error": "این آزمون قبلاً تمام شده است"}, status=status.HTTP_400_BAD_REQUEST)
@@ -374,20 +400,20 @@ class LaunchSubmitView(APIView):
     permission_classes = []
     authentication_classes = []
 
-    def post(self, request, launch_id):
+    def post(self, request, quiz_id):
         serializer = LaunchSubmitSerializer(data=request.data)
         if not serializer.is_valid():
             return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            launch = ExamLaunch.objects.get(uuid=launch_id)
-        except ExamLaunch.DoesNotExist:
-            return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            quiz = Quiz.objects.select_related("evaluation", "user").get(id=launch.quiz_id)
+            quiz = Quiz.objects.select_related("evaluation", "user").get(id=quiz_id)
         except Quiz.DoesNotExist:
             return Response({"error": "Quiz یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Find active launch for this quiz
+        launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=True).order_by("-created_at").first()
+        if not launch:
+            return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
 
         # Idempotent: if already finished, return cached result
         if quiz.end_at is not None and launch.completed_at is not None:
@@ -562,10 +588,15 @@ class LaunchRedirectView(APIView):
     permission_classes = []
     authentication_classes = []
 
-    def get(self, request, launch_id):
+    def get(self, request, quiz_id):
         try:
-            launch = ExamLaunch.objects.get(uuid=launch_id)
-        except ExamLaunch.DoesNotExist:
+            quiz = Quiz.objects.get(id=quiz_id)
+        except Quiz.DoesNotExist:
+            return Response({"error": "Quiz یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Find completed launch for this quiz
+        launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=False).order_by("-created_at").first()
+        if not launch:
             return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
 
         if not launch.completed_at:
