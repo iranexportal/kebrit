@@ -1,13 +1,36 @@
 from rest_framework import serializers
+from django.db import connection
 from .models import Mission, MissionRelation, MissionResult, Ability
 
 
 class MissionSerializer(serializers.ModelSerializer):
     evaluation_results = serializers.SerializerMethodField()
+    typeid = serializers.SerializerMethodField()
+    typetitle = serializers.SerializerMethodField()
+    ctatext = serializers.SerializerMethodField()
+    eurl = serializers.SerializerMethodField()
     
     class Meta:
         model = Mission
-        fields = '__all__'
+        fields = [
+            'id',
+            'company',
+            'user',
+            'typeid',
+            'typetitle',
+            'title',
+            'content',
+            'mo',
+            'point',
+            'create_at',
+            'modified_at',
+            'expier_at',
+            'is_active',
+            'at_least_point',
+            'ctatext',
+            'eurl',
+            'evaluation_results',
+        ]
     
     def get_evaluation_results(self, obj):
         """نتایج آزمون‌های مرتبط با این ماموریت"""
@@ -47,6 +70,58 @@ class MissionSerializer(serializers.ModelSerializer):
                 })
         
         return results
+
+    def get_typeid(self, obj):
+        """
+        در حال حاضر ستون type در جدول mission همچنان یک مقدار متنی است.
+        اگر در DB به شناسه عددی missiontype نگاشت شود، همان مقدار برگردانده می‌شود.
+        """
+        # اگر مقدار قابل تبدیل به عدد نباشد، None برمی‌گردانیم
+        try:
+            return int(obj.type) if obj.type is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def get_typetitle(self, obj):
+        type_id = self.get_typeid(obj)
+        if not type_id:
+            return None
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT title FROM roadmap.missiontype WHERE id = %s',
+                [type_id],
+            )
+            row = cursor.fetchone()
+        return row[0] if row else None
+
+    def get_ctatext(self, obj):
+        type_id = self.get_typeid(obj)
+        if not type_id:
+            return None
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT ctatext FROM roadmap.missiontype WHERE id = %s',
+                [type_id],
+            )
+            row = cursor.fetchone()
+        return row[0] if row else None
+
+    def get_eurl(self, obj):
+        """
+        شناسه یکتای آزمون متناظر با این ماموریت
+        از join بین evaluation و mission گرفته می‌شود.
+        """
+        from exam_app.models import Evaluation
+
+        evaluation_id = (
+            Evaluation.objects.filter(mission=obj, is_active=True)
+            .order_by('id')
+            .values_list('id', flat=True)
+            .first()
+        )
+        return str(evaluation_id) if evaluation_id is not None else None
 
 
 class MissionRelationSerializer(serializers.ModelSerializer):
