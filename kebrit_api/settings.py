@@ -38,7 +38,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-7lht3a&6zlzd%(%yv^8w2=zq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1','htni.ir','app.htni.ir','ayareto.ir','ayareto.com','app.ayareto.com','app.ayareto.ir','api.ayareto.ir','api.ayareto.com']
+ALLOWED_HOSTS = ['testserver','localhost','127.0.0.1','htni.ir','app.htni.ir','ayareto.ir','ayareto.com','app.ayareto.com','app.ayareto.ir','api.ayareto.ir','api.ayareto.com']
 
 
 
@@ -53,8 +53,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third party apps
     'rest_framework',
-    'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',  # ADD THIS: Token blacklisting support
     'corsheaders',
     'drf_yasg',  # Swagger/OpenAPI documentation
     # Local apps
@@ -164,37 +162,14 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'users_app.authentication.CustomJWTAuthentication',
+        # احراز هویت پیش‌فرض فقط با Client Token از هدر X-Client-Token
+        'kebrit_api.authentication_client.ClientTokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 100,
-}
-
-# JWT Settings
-from datetime import timedelta
-
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    # ADD THIS: Cookie settings for JWT tokens
-    'AUTH_COOKIE': 'access_token',
-    'AUTH_COOKIE_REFRESH': 'refresh_token',
-    'AUTH_COOKIE_HTTP_ONLY': True,
-    'AUTH_COOKIE_SECURE': not DEBUG,  # Only secure in production
-    'AUTH_COOKIE_SAMESITE': 'Lax',
-    'AUTH_COOKIE_PATH': '/',
 }
 
 # Exam frontend base URL used for returning exam_url in integration launch endpoint.
@@ -261,12 +236,6 @@ AUTHENTICATION_BACKENDS = [
 # Swagger/OpenAPI Settings
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'JWT token authentication. Format: "Bearer {token}"'
-        },
         'ClientToken': {
             'type': 'apiKey',
             'name': 'X-Client-Token',

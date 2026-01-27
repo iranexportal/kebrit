@@ -24,11 +24,8 @@ class LevelViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(company_id=self.request.auth_company.id)
         queryset = queryset.order_by('order')
         return queryset
 
@@ -46,11 +43,8 @@ class UserLevelViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(user__company_id=self.request.auth_company.id)
         queryset = queryset.order_by('-reachedat', '-id')
         return queryset
 
@@ -68,11 +62,8 @@ class BadgeViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(company_id=self.request.auth_company.id)
         queryset = queryset.order_by('id')
         return queryset
 
@@ -90,11 +81,8 @@ class UserBadgeViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(user__company_id=self.request.auth_company.id)
         queryset = queryset.order_by('-earnedat', '-id')
         return queryset
 
@@ -112,11 +100,8 @@ class UserPointViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(user__company_id=self.request.auth_company.id)
         queryset = queryset.order_by('-totalpoints', '-id')
         return queryset
 
@@ -134,10 +119,7 @@ class UserActionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(user__company_id=self.request.auth_company.id)
         queryset = queryset.order_by('-createdat', '-id')
         return queryset

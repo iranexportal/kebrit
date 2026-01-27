@@ -28,11 +28,9 @@ class MissionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(company_id=self.request.user.company_id)
+        # احراز هویت فقط با Client Token انجام می‌شود
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(company_id=self.request.auth_company.id)
         return queryset
     
     def get_serializer_context(self):
@@ -55,11 +53,8 @@ class MissionRelationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(mission__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(mission__company_id=self.request.auth_company.id)
         return queryset
 
 
@@ -76,11 +71,8 @@ class MissionResultViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(user__company_id=self.request.auth_company.id)
         return queryset
 
 
@@ -97,11 +89,8 @@ class AbilityViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(company_id=self.request.auth_company.id)
         return queryset
 
 

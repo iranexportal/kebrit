@@ -19,11 +19,8 @@ class FileViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(company_id=self.request.auth_company.id)
         return queryset
 
 
@@ -52,9 +49,6 @@ class FileTagViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(file__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(file__company_id=self.request.auth_company.id)
         return queryset

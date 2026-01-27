@@ -21,7 +21,6 @@ from .student_report_serializers import (
 from users_app.permissions import CompanyPermission
 from kebrit_api.authentication_client import ClientTokenAuthentication
 from kebrit_api.permissions import IsClientTokenAuthenticated
-from users_app.authentication import CustomJWTAuthentication
 from users_app.models import User
 from roadmap_app.models import Mission
 
@@ -57,11 +56,9 @@ class EvaluationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        # فیلتر فقط بر اساس شرکت توکن مشتری
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(user__company_id=self.request.auth_company.id)
         # مرتب‌سازی برای جلوگیری از warning pagination
         queryset = queryset.order_by('-create_at', '-id')
         return queryset
@@ -118,11 +115,8 @@ class QuestionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(evaluation__user__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(evaluation__user__company_id=self.request.auth_company.id)
         return queryset
 
 
@@ -135,21 +129,13 @@ class QuestionViewSet(viewsets.ModelViewSet):
 class QuizViewSet(viewsets.ModelViewSet):
     queryset = Quiz.objects.select_related('evaluation', 'evaluation__user', 'evaluation__user__company', 'user', 'user__company').all()
     serializer_class = QuizSerializer
-    authentication_classes = [CustomJWTAuthentication, ClientTokenAuthentication]
+    authentication_classes = [ClientTokenAuthentication]
     permission_classes = [CompanyPermission]
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Handle ClientToken authentication
         if hasattr(self.request, 'auth_company') and self.request.auth_company:
-            # For client token auth, filter by company
             queryset = queryset.filter(user__company_id=self.request.auth_company.id)
-        # Handle JWT authentication
-        elif hasattr(self.request.user, 'company_id') and hasattr(self.request.user, 'user_roles'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(user__company_id=self.request.user.company_id)
         # مرتب‌سازی به ترتیب جدیدترین به قدیمی‌ترین بر اساس start_at
         queryset = queryset.order_by('-start_at')
         return queryset
@@ -836,11 +822,8 @@ class QuizResponseViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(quiz__user__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(quiz__user__company_id=self.request.auth_company.id)
         return queryset
 
 
@@ -857,11 +840,8 @@ class QuizResponseEvaluationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'company_id'):
-            user_roles = self.request.user.user_roles.all()
-            is_admin = any(ur.role.title.lower() == 'admin' for ur in user_roles)
-            if not is_admin:
-                queryset = queryset.filter(user__company_id=self.request.user.company_id)
+        if hasattr(self.request, 'auth_company') and self.request.auth_company:
+            queryset = queryset.filter(user__company_id=self.request.auth_company.id)
         return queryset
 
 
