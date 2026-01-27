@@ -7,7 +7,7 @@ from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.conf import settings
 
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.test import APIClient
@@ -250,8 +250,9 @@ class LaunchDetailView(APIView):
     Student-facing: fetch quiz questions by quiz_id.
     """
 
-    authentication_classes = [ClientTokenAuthentication]
-    permission_classes = [IsClientTokenAuthenticated]
+    # احراز هویت فقط بر اساس launch_id در query انجام می‌شود
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, quiz_id):
         try:
@@ -259,14 +260,19 @@ class LaunchDetailView(APIView):
         except Quiz.DoesNotExist:
             return Response({"error": "Quiz یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Find active launch for this quiz
-        launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=True).order_by("-created_at").first()
+        # احراز هویت بر اساس launch_id موجود در query string
+        launch_id = request.query_params.get("launch") or request.GET.get("launch")
+        if not launch_id:
+            return Response({"error": "پارامتر launch الزامی است"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find active launch for this quiz and launch_id
+        launch = (
+            ExamLaunch.objects.filter(uuid=launch_id, quiz_id=quiz_id, completed_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
         if not launch:
             return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Ensure launch belongs to the same company as client token
-        if launch.company_id != request.auth_company.id:
-            return Response({"error": "دسترسی به این آزمون مجاز نیست"}, status=status.HTTP_403_FORBIDDEN)
 
         # Collect questions with current answers
         questions = Question.objects.filter(quiz_responses__quiz=quiz).distinct()
@@ -352,8 +358,9 @@ class LaunchSubmitView(APIView):
     Student-facing: submit all answers, finalize quiz, compute score, and return redirect_url for callback.
     """
 
-    authentication_classes = [ClientTokenAuthentication]
-    permission_classes = [IsClientTokenAuthenticated]
+    # احراز هویت فقط بر اساس launch_id در query انجام می‌شود
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, quiz_id):
         serializer = LaunchSubmitSerializer(data=request.data)
@@ -365,14 +372,19 @@ class LaunchSubmitView(APIView):
         except Quiz.DoesNotExist:
             return Response({"error": "Quiz یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Find active launch for this quiz
-        launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=True).order_by("-created_at").first()
+        # احراز هویت بر اساس launch_id موجود در query string
+        launch_id = request.query_params.get("launch") or request.GET.get("launch")
+        if not launch_id:
+            return Response({"error": "پارامتر launch الزامی است"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find active launch for this quiz and launch_id
+        launch = (
+            ExamLaunch.objects.filter(uuid=launch_id, quiz_id=quiz_id, completed_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
         if not launch:
             return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Ensure launch belongs to the same company as client token
-        if launch.company_id != request.auth_company.id:
-            return Response({"error": "دسترسی به این آزمون مجاز نیست"}, status=status.HTTP_403_FORBIDDEN)
 
         # Idempotent: if already finished, return cached result
         if quiz.end_at is not None and launch.completed_at is not None:
