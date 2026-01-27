@@ -232,57 +232,6 @@ class ClientExamLaunchView(APIView):
         base = getattr(settings, "EXAM_FRONT_BASE_URL", "") or ""
         exam_url = f"{base}?launch={launch.uuid}" if base else None
         
-        # Generate JWT token for the student to authenticate with app.ayareto.ir
-        refresh = RefreshToken.for_user(student)
-        refresh['company_id'] = student.company_id
-        refresh['name'] = student.name
-        refresh['mobile'] = student.mobile
-        
-        # Add role and permissions to token (if student has roles)
-        user_roles = student.user_roles.select_related('role').all()
-        roles = [ur.role.title for ur in user_roles]
-        refresh['role'] = roles[0] if roles else None
-        refresh['roles'] = roles
-        refresh['is_admin'] = 'admin' in [r.lower() for r in roles]
-        
-        # Add permissions based on roles
-        permissions = []
-        for user_role in user_roles:
-            role_title = user_role.role.title.lower()
-            if role_title == 'admin':
-                permissions.extend(['admin.read', 'admin.write', 'admin.delete'])
-        refresh['permissions'] = list(set(permissions))
-        
-        access_token = str(refresh.access_token)
-        
-        # #region agent log
-        import json
-        import os
-        try:
-            with open('/Users/hajrezvan/Desktop/Projects/Kebrit/api/.cursor/debug.log', 'a') as f:
-                log_entry = json.dumps({
-                    "sessionId": "debug-session",
-                    "runId": "run1",
-                    "hypothesisId": "A",
-                    "location": "integration_views.py:256",
-                    "message": "JWT token generated for student",
-                    "data": {
-                        "student_id": student.id,
-                        "student_uuid": student_uuid,
-                        "access_token_length": len(access_token),
-                        "access_token_preview": access_token[:20] + "..." if len(access_token) > 20 else access_token
-                    },
-                    "timestamp": int(timezone.now().timestamp() * 1000)
-                }) + "\n"
-                f.write(log_entry)
-        except Exception:
-            pass
-        # #endregion
-        
-        # Build redirect URL to quiz page with JWT token as query parameter
-        redirect_url = f"https://app.ayareto.ir/quiz/{quiz_id_from_start}?token={access_token}"
-        # redirect_url = f"http://localhost:3000/quiz/{quiz_id_from_start}?token={access_token}"
-
         return Response(
             {
                 "launch_id": str(launch.uuid),
@@ -291,8 +240,6 @@ class ClientExamLaunchView(APIView):
                 "eurl": eurl,
                 "student": {"uuid": student_uuid, "mobile": mobile},
                 "is_existing_quiz": is_existing,
-                "redirect_url": redirect_url,
-                "access_token": access_token,  # Add access_token to response
             },
             status=status.HTTP_201_CREATED,
         )
@@ -303,8 +250,8 @@ class LaunchDetailView(APIView):
     Student-facing: fetch quiz questions by quiz_id.
     """
 
-    permission_classes = []
-    authentication_classes = []
+    authentication_classes = [ClientTokenAuthentication]
+    permission_classes = [IsClientTokenAuthenticated]
 
     def get(self, request, quiz_id):
         try:
@@ -316,6 +263,10 @@ class LaunchDetailView(APIView):
         launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=True).order_by("-created_at").first()
         if not launch:
             return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Ensure launch belongs to the same company as client token
+        if launch.company_id != request.auth_company.id:
+            return Response({"error": "دسترسی به این آزمون مجاز نیست"}, status=status.HTTP_403_FORBIDDEN)
 
         # Collect questions with current answers
         questions = Question.objects.filter(quiz_responses__quiz=quiz).distinct()
@@ -355,8 +306,8 @@ class LaunchAnswerView(APIView):
     Student-facing: save one answer (optional convenience).
     """
 
-    permission_classes = []
-    authentication_classes = []
+    authentication_classes = [ClientTokenAuthentication]
+    permission_classes = [IsClientTokenAuthenticated]
 
     def post(self, request, quiz_id):
         serializer = LaunchAnswerSerializer(data=request.data)
@@ -372,6 +323,10 @@ class LaunchAnswerView(APIView):
         launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=True).order_by("-created_at").first()
         if not launch:
             return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Ensure launch belongs to the same company as client token
+        if launch.company_id != request.auth_company.id:
+            return Response({"error": "دسترسی به این آزمون مجاز نیست"}, status=status.HTTP_403_FORBIDDEN)
 
         if quiz.end_at is not None:
             return Response({"error": "این آزمون قبلاً تمام شده است"}, status=status.HTTP_400_BAD_REQUEST)
@@ -397,8 +352,8 @@ class LaunchSubmitView(APIView):
     Student-facing: submit all answers, finalize quiz, compute score, and return redirect_url for callback.
     """
 
-    permission_classes = []
-    authentication_classes = []
+    authentication_classes = [ClientTokenAuthentication]
+    permission_classes = [IsClientTokenAuthenticated]
 
     def post(self, request, quiz_id):
         serializer = LaunchSubmitSerializer(data=request.data)
@@ -414,6 +369,10 @@ class LaunchSubmitView(APIView):
         launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=True).order_by("-created_at").first()
         if not launch:
             return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Ensure launch belongs to the same company as client token
+        if launch.company_id != request.auth_company.id:
+            return Response({"error": "دسترسی به این آزمون مجاز نیست"}, status=status.HTTP_403_FORBIDDEN)
 
         # Idempotent: if already finished, return cached result
         if quiz.end_at is not None and launch.completed_at is not None:
@@ -585,8 +544,8 @@ class LaunchRedirectView(APIView):
     Browser redirect to customer's callback_url with result as query params.
     """
 
-    permission_classes = []
-    authentication_classes = []
+    authentication_classes = [ClientTokenAuthentication]
+    permission_classes = [IsClientTokenAuthenticated]
 
     def get(self, request, quiz_id):
         try:
@@ -598,6 +557,10 @@ class LaunchRedirectView(APIView):
         launch = ExamLaunch.objects.filter(quiz_id=quiz_id, completed_at__isnull=False).order_by("-created_at").first()
         if not launch:
             return Response({"error": "Launch یافت نشد"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Ensure launch belongs to the same company as client token
+        if launch.company_id != request.auth_company.id:
+            return Response({"error": "دسترسی به این آزمون مجاز نیست"}, status=status.HTTP_403_FORBIDDEN)
 
         if not launch.completed_at:
             return Response({"error": "آزمون هنوز تمام نشده است"}, status=status.HTTP_400_BAD_REQUEST)

@@ -14,7 +14,9 @@
 
 ## احراز هویت (Authentication)
 
-### 1) درخواست‌های مشتری (Server-to-Server)
+### 1) توکن مشتری (Client Token)
+
+برای تمام درخواست‌های این بخش (هم سمت سرور مشتری و هم سمت فرانت دانشجو) باید توکن مشتری در header ارسال شود.
 
 هدر پیشنهادی:
 
@@ -28,8 +30,6 @@ X-Client-Token: <CLIENT_TOKEN_UUID>
 Authorization: Token <CLIENT_TOKEN_UUID>
 ```
 
-> **مهم**: این توکن باید روی سرور مشتری نگهداری شود و هرگز در مرورگر دانشجو expose نشود.
-
 #### دریافت/ایجاد توکن مشتری
 
 توکن مشتری در مدل `ClientApiToken` نگهداری می‌شود و می‌توانید آن را از طریق پنل Django Admin بسازید:
@@ -40,9 +40,7 @@ Authorization: Token <CLIENT_TOKEN_UUID>
   - `uuid`: به صورت خودکار ساخته می‌شود (یا می‌توانید دستی ست کنید)
   - `allowed_callback_hosts` (اختیاری): لیست دامنه‌های مجاز برای `callback_url` به صورت `comma-separated`
 
-### 2) درخواست‌های دانشجو (Browser-to-API)
-
-دانشجو نیازی به توکن مشتری ندارد. دانشجو فقط با `launch_id` به endpointهای launch دسترسی دارد.
+> **نکته امنیتی**: در صورت نیاز، می‌توانید برای فرانت یک توکن مشتری جدا با سطح دسترسی محدود تعریف کنید.
 
 ---
 
@@ -121,7 +119,7 @@ Authorization: Token <CLIENT_TOKEN_UUID>
 ### 3) دریافت سوالات و وضعیت آزمون (دانشجو)
 
 - **Endpoint**: `GET /api/launch/{launch_id}/`
-- **Auth**: ندارد (launch_id نقش session را دارد)
+- **Auth**: نیازمند توکن مشتری در header
 
 **Response (200):**
 ```json
@@ -164,7 +162,7 @@ Authorization: Token <CLIENT_TOKEN_UUID>
 ### 4) ذخیره پاسخ یک سوال (اختیاری)
 
 - **Endpoint**: `POST /api/launch/{launch_id}/answer/`
-- **Auth**: ندارد
+- **Auth**: نیازمند توکن مشتری در header
 
 **Request Body:**
 ```json
@@ -185,7 +183,7 @@ Authorization: Token <CLIENT_TOKEN_UUID>
 ### 5) ارسال نهایی آزمون و محاسبه نتیجه (دانشجو)
 
 - **Endpoint**: `POST /api/launch/{launch_id}/submit/`
-- **Auth**: ندارد
+- **Auth**: نیازمند توکن مشتری در header
 
 **Request Body:**
 ```json
@@ -223,7 +221,7 @@ Authorization: Token <CLIENT_TOKEN_UUID>
 ### 6) ریدایرکت مرورگر به callback_url مشتری (دانشجو)
 
 - **Endpoint**: `GET /api/launch/{launch_id}/redirect/`
-- **Auth**: ندارد
+- **Auth**: نیازمند توکن مشتری در header
 - **Behavior**: پاسخ `302` و انتقال مرورگر به `callback_url` با پارامترهای نتیجه
 
 **اگر آزمون تمام نشده باشد:**
@@ -252,8 +250,8 @@ Authorization: Token <CLIENT_TOKEN_UUID>
 ## چک‌لیست Front (سایت Kebrit)
 
 - ساخت صفحه آزمون که `launch` را از Query/String بخواند.
-- فراخوانی `GET /api/launch/{launch_id}/` برای گرفتن سوالات و نمایش UI آزمون.
-- ذخیره پاسخ‌ها (یا تدریجی با `/answer/` یا یکجا با `/submit/`).
+- فراخوانی `GET /api/launch/{launch_id}/` برای گرفتن سوالات و نمایش UI آزمون (همراه با `X-Client-Token`).
+- ذخیره پاسخ‌ها (یا تدریجی با `/answer/` یا یکجا با `/submit/`) همراه با `X-Client-Token`.
 - پس از `submit`:
   - نمایش نتیجه
   - سپس redirect به `redirect_url` یا مستقیماً باز کردن `/api/launch/{launch_id}/redirect/`
@@ -263,11 +261,10 @@ Authorization: Token <CLIENT_TOKEN_UUID>
 
 ## چک‌لیست مشتریان (سیستم‌های مشتری)
 
-- نگهداری امن `CLIENT_TOKEN` روی سرور (نه در مرورگر).
 - ساخت صفحه معرفی آزمون:
   - دریافت اطلاعات با `GET /api/integration/exams/{eurl}/`
 - روی کلیک «شروع آزمون»:
-  - فراخوانی `POST /api/integration/exams/launch/` با `student_uuid`, `mobile`, `eurl`, `callback_url`
-  - ریدایرکت مرورگر دانشجو به `exam_url`
+  - فراخوانی `POST /api/integration/exams/launch/` با `student_uuid`, `mobile`, `eurl`, `callback_url` و ارسال توکن مشتری در header
+  - ریدایرکت مرورگر دانشجو به `exam_url` و تنظیم توکن مشتری در header درخواست‌های بعدی فرانت
 - پیاده‌سازی endpoint/صفحه‌ی `callback_url` برای دریافت نتیجه از Query String و ثبت کارنامه/وضعیت در سیستم مشتری.
 

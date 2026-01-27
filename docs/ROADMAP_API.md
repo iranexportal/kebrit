@@ -10,11 +10,16 @@ http://localhost:8000/api
 
 ## احراز هویت
 
-تمام API های این بخش نیاز به احراز هویت دارند. Token را در header ارسال کنید:
-
-```
-Authorization: Bearer <access_token>
-```
+- **پنل ادمین / بک‌آفیس** (مدیریت ماموریت‌ها، نتایج، توانایی‌ها و ...):  
+  نیازمند JWT است و باید در header ارسال شود:
+  ```
+  Authorization: Bearer <access_token>
+  ```
+- **دانشجو / فرانت مشتری** (دریافت ماموریت‌های یک کاربر):  
+  نیازمند توکن مشتری در header است:
+  ```
+  X-Client-Token: <CLIENT_TOKEN_UUID>
+  ```
 
 ---
 
@@ -252,16 +257,15 @@ POST /api/user-missions/
 
 **Headers:**
 ```
+X-Client-Token: <CLIENT_TOKEN_UUID>
 Content-Type: application/json
 ```
-
-**نکته:** این endpoint نیاز به احراز هویت ندارد.
 
 **Request Body:**
 ```json
 {
   "mobile": "09123456789",
-  "company_id": 1
+  // company_id از روی توکن مشتری تعیین می‌شود و در body نیاز نیست
 }
 ```
 
@@ -475,11 +479,11 @@ POST /api/abilities/
 const response = await fetch('http://localhost:8000/api/user-missions/', {
   method: 'POST',
   headers: {
+    'X-Client-Token': CLIENT_TOKEN,
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    mobile: '09123456789',
-    company_id: 1
+    mobile: '09123456789'
   })
 });
 

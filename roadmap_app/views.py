@@ -1,5 +1,5 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django_ratelimit.decorators import ratelimit
@@ -11,6 +11,8 @@ from .serializers import (
 )
 from users_app.permissions import CompanyPermission
 from users_app.models import User, Company
+from kebrit_api.authentication_client import ClientTokenAuthentication
+from kebrit_api.permissions import IsClientTokenAuthenticated
 
 
 @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'), name='list')
@@ -104,7 +106,8 @@ class AbilityViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@authentication_classes([ClientTokenAuthentication])
+@permission_classes([IsClientTokenAuthenticated])
 @ratelimit(key='ip', rate='100/h', method='POST')
 def get_user_missions(request):
     """
@@ -138,16 +141,15 @@ def get_user_missions(request):
         )
     
     mobile = serializer.validated_data['mobile']
-    company_id = serializer.validated_data['company_id']
     
-    # بررسی وجود شرکت
-    try:
-        company = Company.objects.get(id=company_id)
-    except Company.DoesNotExist:
+    # شرکت از روی توکن مشتری (ClientTokenAuthentication) تعیین می‌شود
+    company = getattr(request, 'auth_company', None)
+    if company is None:
         return Response(
-            {'error': 'شرکت یافت نشد'},
-            status=status.HTTP_404_NOT_FOUND
+            {'error': 'توکن مشتری نامعتبر است'},
+            status=status.HTTP_401_UNAUTHORIZED
         )
+    company_id = company.id
     
     # بررسی وجود کاربر با شماره تلفن و شرکت
     try:
