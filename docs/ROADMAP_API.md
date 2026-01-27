@@ -47,7 +47,8 @@ Authorization: Bearer <access_token>
       "id": 1,
       "company": 1,
       "user": null,
-      "type": "A",
+      "typeid": 12,
+      "typetitle": "تولید محتوا",
       "title": "ماموریت اول",
       "content": "توضیحات ماموریت...",
       "mo": true,
@@ -57,6 +58,8 @@ Authorization: Bearer <access_token>
       "expier_at": null,
       "is_active": true,
       "at_least_point": 50,
+      "ctatext": "شروع",
+      "eurl": "1",
       "evaluation_results": [
         {
           "evaluation_id": 1,
@@ -79,6 +82,28 @@ Authorization: Bearer <access_token>
 
 ---
 
+### ساختار شیء ماموریت (خروجی API)
+
+هر جا در این مستندات یک شیء `mission` برگردانده می‌شود، ساختار آن به‌صورت زیر است:
+
+- `id` (integer): شناسه ماموریت
+- `company` (integer|null): شناسه شرکت
+- `user` (integer|null): شناسه کاربری که ماموریت را تعریف کرده است
+- `typeid` (integer|null): شناسه نوع ماموریت (`missiontype.id`)
+- `typetitle` (string|null): عنوان نوع ماموریت
+- `title` (string): عنوان ماموریت
+- `content` (string): توضیحات کامل ماموریت
+- `mo` (boolean): آیا ماموریت اجباری است؟
+- `point` (integer): امتیاز این ماموریت
+- `create_at` (datetime): زمان ایجاد
+- `modified_at` (datetime|null): زمان آخرین ویرایش
+- `expier_at` (datetime|null): زمان انقضای ماموریت
+- `is_active` (boolean): وضعیت فعال/غیرفعال
+- `at_least_point` (integer|null): حداقل امتیاز مورد نیاز
+- `ctatext` (string|null): متن دکمه «دعوت به اقدام» برای این مأموریت
+- `eurl` (string|null): شناسه یکتای آزمون متناظر با این مأموریت (از جدول `evaluation`)
+- `evaluation_results` (array): نتایج آزمون‌های مرتبط برای کاربر فعلی (در صورت احراز هویت)
+
 ### جزئیات ماموریت
 
 **Endpoint:**
@@ -92,7 +117,8 @@ GET /api/missions/{id}/
   "id": 1,
   "company": 1,
   "user": null,
-  "type": "A",
+  "typeid": 12,
+  "typetitle": "تولید محتوا",
   "title": "ماموریت اول",
   "content": "توضیحات کامل ماموریت...",
   "mo": true,
@@ -102,7 +128,21 @@ GET /api/missions/{id}/
   "expier_at": null,
   "is_active": true,
   "at_least_point": 50,
-  "evaluation_results": [...]
+  "ctatext": "شروع",
+  "eurl": "1",
+  "evaluation_results": [
+    {
+      "evaluation_id": 1,
+      "evaluation_title": "آزمون ماموریت اول",
+      "evaluation_type": "quiz",
+      "quiz_id": 5,
+      "score": 85.5,
+      "quiz_start_at": "2024-01-01T10:00:00Z",
+      "quiz_end_at": "2024-01-01T10:30:00Z",
+      "is_accept": true,
+      "accept_score": 50
+    }
+  ]
 }
 ```
 
@@ -126,7 +166,6 @@ Content-Type: application/json
 {
   "company": 1,
   "user": null,
-  "type": "A",
   "title": "ماموریت جدید",
   "content": "توضیحات ماموریت",
   "mo": true,
@@ -140,7 +179,6 @@ Content-Type: application/json
 **فیلدها:**
 - `company` (integer, required): شناسه شرکت
 - `user` (integer, nullable): شناسه کاربر (اختیاری)
-- `type` (string, required): نوع ماموریت (یک کاراکتر)
 - `title` (string, required): عنوان ماموریت
 - `content` (text, required): محتوای ماموریت
 - `mo` (boolean, required): آیا ماموریت اجباری است؟
@@ -155,9 +193,20 @@ Content-Type: application/json
   "id": 1,
   "company": 1,
   "user": null,
-  "type": "A",
+  "typeid": 12,
+  "typetitle": "تولید محتوا",
   "title": "ماموریت جدید",
-  ...
+  "content": "توضیحات ماموریت",
+  "mo": true,
+  "point": 100,
+  "create_at": "2024-01-01T10:00:00Z",
+  "modified_at": null,
+  "expier_at": "2024-12-31T23:59:59Z",
+  "is_active": true,
+  "at_least_point": 50,
+  "ctatext": "شروع",
+  "eurl": "1",
+  "evaluation_results": []
 }
 ```
 
@@ -230,10 +279,22 @@ Content-Type: application/json
     {
       "mission": {
         "id": 1,
+        "company": 1,
+        "user": 1,
+        "typeid": 12,
+        "typetitle": "تولید محتوا",
         "title": "ماموریت اول",
         "content": "...",
+        "mo": true,
         "point": 100,
-        ...
+        "create_at": "2024-01-01T10:00:00Z",
+        "modified_at": null,
+        "expier_at": null,
+        "is_active": true,
+        "at_least_point": 50,
+        "ctatext": "شروع",
+        "eurl": "1",
+        "evaluation_results": []
       },
       "result": {
         "id": 1,
@@ -249,10 +310,22 @@ Content-Type: application/json
   "available_missions": [
     {
       "id": 2,
+      "company": 1,
+      "user": 1,
+      "typeid": 13,
+      "typetitle": "مشاهده ویدیو",
       "title": "ماموریت دوم",
       "content": "...",
+      "mo": false,
       "point": 150,
-      ...
+      "create_at": "2024-01-02T10:00:00Z",
+      "modified_at": null,
+      "expier_at": null,
+      "is_active": true,
+      "at_least_point": null,
+      "ctatext": "مشاهده",
+      "eurl": "2",
+      "evaluation_results": []
     }
   ],
   "stats": {
