@@ -1,5 +1,5 @@
 from rest_framework import viewsets, status, permissions
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
@@ -13,9 +13,17 @@ from .serializers import (
     QuizResponseSerializer, QuizResponseEvaluationSerializer,
     QuestionForQuizSerializer, QuizSubmitSerializer, QuizResultSerializer
 )
+from .student_report_serializers import (
+    MissionReportRequestSerializer,
+    MissionReportSerializer,
+    MissionAttemptSerializer,
+)
 from users_app.permissions import CompanyPermission
 from kebrit_api.authentication_client import ClientTokenAuthentication
+from kebrit_api.permissions import IsClientTokenAuthenticated
 from users_app.authentication import CustomJWTAuthentication
+from users_app.models import User
+from roadmap_app.models import Mission
 
 
 @method_decorator(ratelimit(key='ip', rate='100/h', method='GET'), name='list')
@@ -855,3 +863,87 @@ class QuizResponseEvaluationViewSet(viewsets.ModelViewSet):
             if not is_admin:
                 queryset = queryset.filter(user__company_id=self.request.user.company_id)
         return queryset
+
+
+@api_view(['POST'])
+@authentication_classes([ClientTokenAuthentication])
+@permission_classes([IsClientTokenAuthenticated])
+@method_decorator(ratelimit(key='ip', rate='50/h', method='POST'))
+def mission_student_report(request):
+    """
+    دریافت کارنامه دانشجو در یک ماموریت مشخص بر اساس:
+    - شماره موبایل دانشجو
+    - شناسه ماموریت
+    احراز هویت فقط با توکن مشتری (Client Token) انجام می‌شود.
+    """
+    req_serializer = MissionReportRequestSerializer(data=request.data)
+    if not req_serializer.is_valid():
+        return Response({'error': req_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    mobile = req_serializer.validated_data['mobile']
+    mission_id = req_serializer.validated_data['mission_id']
+
+    # شرکت از روی توکن مشتری تعیین می‌شود
+    company = getattr(request, 'auth_company', None)
+    if company is None:
+        return Response({'error': 'توکن مشتری نامعتبر است'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # پیدا کردن دانشجو در همان شرکت
+    try:
+        user = User.objects.get(mobile=mobile, company_id=company.id)
+    except User.DoesNotExist:
+        return Response({'error': 'دانشجو با این شماره موبایل در این شرکت یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+
+    # پیدا کردن ماموریت متناسب با شرکت
+    try:
+        mission = Mission.objects.get(id=mission_id, company_id=company.id)
+    except Mission.DoesNotExist:
+        return Response({'error': 'ماموریت یافت نشد یا متعلق به این شرکت نیست'}, status=status.HTTP_404_NOT_FOUND)
+
+    # پیدا کردن تمام evaluation های مرتبط با این ماموریت
+    evaluations = Evaluation.objects.filter(mission=mission, is_active=True).order_by('id')
+
+    if not evaluations.exists():
+        empty_report = MissionReportSerializer({
+            'mission_id': mission.id,
+            'mobile': mobile,
+            'user_id': user.id,
+            'attempts': [],
+        })
+        return Response(empty_report.data, status=status.HTTP_200_OK)
+
+    # همه کوئیزهای تمام‌شده دانشجو روی این ماموریت (ممکن است چند evaluation داشته باشد)
+    quizzes = (
+        Quiz.objects.filter(evaluation__in=evaluations, user=user, end_at__isnull=False)
+        .select_related('evaluation')
+        .order_by('start_at')
+    )
+
+    attempts = []
+    for quiz in quizzes:
+        qre = (
+            QuizResponseEvaluation.objects.filter(user=user, quiz=quiz)
+            .order_by('-id')
+            .first()
+        )
+        percentage = qre.score if qre and qre.score is not None else None
+
+        attempts.append({
+            'evaluation_id': quiz.evaluation_id,
+            'quiz_id': quiz.id,
+            'percentage': round(percentage, 2) if percentage is not None else None,
+            'total_score': round(quiz.score, 2) if quiz.score is not None else None,
+            'is_accept': bool(quiz.is_accept) if quiz.is_accept is not None else None,
+            'accept_score': quiz.evaluation.accept_score,
+            'start_at': quiz.start_at,
+            'end_at': quiz.end_at,
+        })
+
+    report = MissionReportSerializer({
+        'mission_id': mission.id,
+        'mobile': mobile,
+        'user_id': user.id,
+        'attempts': attempts,
+    })
+
+    return Response(report.data, status=status.HTTP_200_OK)

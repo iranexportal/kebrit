@@ -171,6 +171,7 @@ from exam_app.integration_views import (
     LaunchSubmitView,
     LaunchRedirectView,
 )
+from exam_app.views import mission_student_report
 
 
 # ADD THIS: Custom token refresh view that supports cookies
@@ -347,6 +348,8 @@ urlpatterns = [
     path('api/quiz/<int:quiz_id>/redirect/', csrf_exempt(LaunchRedirectView.as_view()), name='quiz_redirect'),
     # Roadmap app custom endpoints
     path('api/user-missions/', csrf_exempt(get_user_missions), name='user_missions'),
+    # Mission student report
+    path('api/mission-student-report/', csrf_exempt(mission_student_report), name='mission_student_report'),
     # JWT Authentication endpoints (exempt from CSRF)
     # Custom token view that accepts mobile instead of username and sets cookies
     path('api/token/', csrf_exempt(CookieTokenObtainPairView.as_view(serializer_class=CustomTokenObtainPairSerializer)), name='token_obtain_pair'),

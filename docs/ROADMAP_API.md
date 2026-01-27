@@ -471,6 +471,70 @@ POST /api/abilities/
 
 ---
 
+## 6. گزارش آزمون یک مأموریت برای دانشجو (Mission Student Report)
+
+این endpoint تاریخچه‌ی شرکت دانشجو در آزمون(های) مرتبط با یک مأموریت را برمی‌گرداند
+(بدون جزئیات سوال/پاسخ؛ فقط نمره و تعداد دفعات شرکت).
+
+- برای هر بار شرکت در آزمون، یک رکورد در `attempts` برمی‌گردد.
+
+**Endpoint:**
+```
+POST /api/mission-student-report/
+```
+
+**Headers:**
+```
+X-Client-Token: <CLIENT_TOKEN_UUID>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "mobile": "09123456789",
+  "mission_id": 1
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "mission_id": 1,
+  "mobile": "09123456789",
+  "user_id": 10,
+  "attempts": [
+    {
+      "evaluation_id": 12,
+      "quiz_id": 345,
+      "percentage": 70.0,
+      "total_score": 14.0,
+      "is_accept": true,
+      "accept_score": 60,
+      "start_at": "2024-01-01T10:00:00Z",
+      "end_at": "2024-01-01T10:30:00Z"
+    },
+    {
+      "evaluation_id": 12,
+      "quiz_id": 400,
+      "percentage": 85.0,
+      "total_score": 17.0,
+      "is_accept": true,
+      "accept_score": 60,
+      "start_at": "2024-01-05T09:00:00Z",
+      "end_at": "2024-01-05T09:25:00Z"
+    }
+  ]
+}
+```
+
+**نکات:**
+- اگر هنوز دانشجو در آزمون‌های این مأموریت شرکت نکرده باشد، آرایه `attempts` خالی است.
+- اگر چند `evaluation` برای یک مأموریت تعریف شده باشد، همه‌ی کوییزهای پایان‌یافته دانشجو
+روی آن‌ها در `attempts` برمی‌گردند (با `evaluation_id` مربوطه).
+
+---
+
 ## مثال استفاده
 
 ### دریافت ماموریت‌های کاربر
