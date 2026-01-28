@@ -493,7 +493,7 @@ Content-Type: application/json
 ```json
 {
   "mobile": "09123456789",
-  "mission_id": 1
+  "erul": 1
 }
 ```
 

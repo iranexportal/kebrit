@@ -40,7 +40,14 @@ DEBUG = env('DEBUG', default=True)
 
 ALLOWED_HOSTS = ['testserver','localhost','127.0.0.1','htni.ir','app.htni.ir','ayareto.ir','ayareto.com','app.ayareto.com','app.ayareto.ir','api.ayareto.ir','api.ayareto.com']
 
+import sentry_sdk
 
+sentry_sdk.init(
+    dsn="https://860721a2ee404e13dcbdd68e61cba563@sentry.hamravesh.com/9657",
+    # Add data like request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
+)
 
 # Application definition
 

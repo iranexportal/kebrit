@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 class MissionReportRequestSerializer(serializers.Serializer):
     mobile = serializers.CharField(required=True, help_text="شماره تلفن دانشجو")
-    mission_id = serializers.IntegerField(required=True, help_text="شناسه ماموریت")
+    erul = serializers.IntegerField(required=True, help_text="شناسه یکتای آزمون (eurl)")
 
 
 class MissionAttemptSerializer(serializers.Serializer):

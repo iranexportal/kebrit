@@ -861,7 +861,7 @@ def mission_student_report(request):
         return Response({'error': req_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     mobile = req_serializer.validated_data['mobile']
-    mission_id = req_serializer.validated_data['mission_id']
+    erul = req_serializer.validated_data['erul']
 
     # شرکت از روی توکن مشتری تعیین می‌شود
     company = getattr(request, 'auth_company', None)
@@ -874,11 +874,17 @@ def mission_student_report(request):
     except User.DoesNotExist:
         return Response({'error': 'دانشجو با این شماره موبایل در این شرکت یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
 
-    # پیدا کردن ماموریت متناسب با شرکت
+    # پیدا کردن evaluation بر اساس erul (شناسه آزمون) و سپس استخراج ماموریت مرتبط با همان شرکت
     try:
-        mission = Mission.objects.get(id=mission_id, company_id=company.id)
-    except Mission.DoesNotExist:
-        return Response({'error': 'ماموریت یافت نشد یا متعلق به این شرکت نیست'}, status=status.HTTP_404_NOT_FOUND)
+        evaluation = Evaluation.objects.select_related('mission', 'mission__company').get(
+            id=erul,
+            is_active=True,
+            mission__company_id=company.id,
+        )
+    except Evaluation.DoesNotExist:
+        return Response({'error': 'آزمون یافت نشد یا متعلق به این شرکت نیست'}, status=status.HTTP_404_NOT_FOUND)
+
+    mission = evaluation.mission
 
     # پیدا کردن تمام evaluation های مرتبط با این ماموریت
     evaluations = Evaluation.objects.filter(mission=mission, is_active=True).order_by('id')
